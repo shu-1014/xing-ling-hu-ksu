@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       kmi:
-        description: '要内嵌的 KMI（逗号分隔或 all）。建议只填一个，见下方说明'
+        description: '要内嵌的 KMI。all = 全部 8 个（适配所有 5.10 以上机型），也可逗号分隔只挑几个'
         required: true
-        default: 'android14-6.1'
+        default: 'all'
         type: string
       package_name:
         description: '管理器包名'
@@ -86,9 +86,8 @@ jobs:
       - name: 提示
         if: ${{ steps.set.outputs.count > 2 }}
         run: |
-          echo "::warning::内嵌 ${{ steps.set.outputs.count }} 个 KMI 会让 APK 明显变大。"
-          echo "::warning::LKM 用的是你指定的包名/哈希，和设备内核版本无关，"
-          echo "::warning::所以只内嵌你自己设备那一个 KMI 就够用了。"
+          echo "::notice::内嵌 ${{ steps.set.outputs.count }} 个 KMI，这一个 APK 即可适配所有 5.10 以上的机型。"
+          echo "::notice::代价是 APK 会大几 MB（每个模块约 100-300 KB），换来的是不用再纠结设备 KMI。"
 
   # ---------------------------------------------------------------------------
   # 2. 编译 kernelsu.ko
@@ -191,7 +190,22 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      # 故意不装 android-actions/setup-android：
+      # ubuntu-latest 镜像本来就带好了 Android SDK（ANDROID_HOME 已设好），
+      # 而 setup-android 经常自己先挂掉（ANDROID_SDK_ROOT 冲突 / 拉 cmdline-tools 失败），
+      # 会在还没开始编译时就把整个 job 弄红。上游的 build-manager.yml 同样没用它。
+      # 缺的 build-tools 37.0.0 由 AGP 在 assembleRelease 时自动下载。
+      - name: 确认 Android SDK 可用
+        run: |
+          set -eu
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          for root in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk "$HOME/Android/Sdk"; do
+            [ -n "$root" ] || continue
+            [ -d "$root" ] || continue
+            echo "--- $root ---"
+            ls "$root" | head -n 20
+          done
 
       - uses: gradle/actions/setup-gradle@v6
 
@@ -294,8 +308,23 @@ jobs:
           echo "APK=$apk" >> $GITHUB_ENV
           ls -l "$apk"
 
-          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -n 1)
-          [ -n "$AAPT" ] || { echo "::error::找不到 aapt2"; exit 1; }
+          # SDK 可能装在几个不同位置，挨个找；AGP 会在编译时把 build-tools 37.0.0 拉下来。
+          find_tool() {
+            for root in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk "$HOME/Android/Sdk"; do
+              [ -n "$root" ] || continue
+              [ -d "$root/build-tools" ] || continue
+              hit=$(find "$root/build-tools" -type f -name "$1" 2>/dev/null | sort | tail -n 1)
+              if [ -n "$hit" ]; then echo "$hit"; return 0; fi
+            done
+            return 1
+          }
+
+          AAPT=$(find_tool aapt2) || {
+            echo "::error::找不到 aapt2。已安装的 build-tools："
+            find / -type d -path '*build-tools*' -maxdepth 6 2>/dev/null | head -n 20
+            exit 1
+          }
+          echo "aapt2 = $AAPT"
           badging=$("$AAPT" dump badging "$apk")
           echo "$badging" | head -n 2
 
@@ -318,7 +347,16 @@ jobs:
         if: ${{ inputs.sign }}
         run: |
           set -eu
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -n 1)
+          find_tool() {
+            for root in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk "$HOME/Android/Sdk"; do
+              [ -n "$root" ] || continue
+              [ -d "$root/build-tools" ] || continue
+              hit=$(find "$root/build-tools" -type f -name "$1" 2>/dev/null | sort | tail -n 1)
+              if [ -n "$hit" ]; then echo "$hit"; return 0; fi
+            done
+            return 1
+          }
+          APKSIGNER=$(find_tool apksigner) || { echo "::error::找不到 apksigner"; exit 1; }
           "$APKSIGNER" verify --print-certs "$APK"
 
       - name: 整理产物
