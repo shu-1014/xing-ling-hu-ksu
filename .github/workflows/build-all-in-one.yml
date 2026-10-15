@@ -399,17 +399,22 @@ jobs:
           APKSIGNER=$(find_tool apksigner) || { echo "::error::找不到 apksigner"; exit 1; }
           "$APKSIGNER" verify --print-certs "$APK"
 
-          # 最后一道闸：直接从已签名的 APK 里把证书抽出来比哈希。
+          # 最后一道闸：从已签名的 APK 里读出证书哈希，和内核里烧的比。
           # 这是整条链路上唯一能证明「装上去真有 root」的检查。
-          unzip -p "$APK" 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.DSA' > /tmp/sig.bin 2>/dev/null || true
-          keytool -printcert -jarfile "$APK" > /tmp/cert.txt 2>/dev/null || true
+          #
+          # 注意别用 keytool -printcert：JKS 警告会混进 stdout，
+          # grep 'SHA256:' 会先匹配到那行空壳，取出来是空字符串。
+          # apksigner 的输出是干净的，直接解析它。
+          got=$("$APKSIGNER" verify --print-certs "$APK" \
+                | grep -i 'certificate SHA-256 digest' \
+                | head -n 1 \
+                | sed 's/.*digest:[[:space:]]*//' \
+                | tr -d ': \t\r\n' | tr 'A-Z' 'a-z')
 
-          # cert.txt 里的 SHA256 是冒号分隔的，转成连续小写再比。
-          got=$(grep -i 'SHA256:' /tmp/cert.txt | head -n 1 \
-                | sed 's/.*SHA256:[[:space:]]*//' | tr -d ': \t\r\n' | tr 'A-Z' 'a-z')
           echo "APK 证书 SHA-256: $got"
           echo "内核里烧的哈希  : $WANT_HASH"
 
+          [ -n "$got" ] || { echo "::error::没能从 APK 里读出证书哈希"; exit 1; }
           if [ "$got" != "$WANT_HASH" ]; then
             echo "::error::APK 的签名证书哈希和内核里的对不上，装上去不会被授权 root。"
             exit 1
