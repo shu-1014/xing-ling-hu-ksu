@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.xinglinghu.manager.R
+import com.xinglinghu.manager.ui.cosmetic.FallingEffect
 import com.xinglinghu.manager.ui.theme.LocalEnableBlur
 import com.xinglinghu.manager.ui.util.BlurredBar
 import com.xinglinghu.manager.ui.util.rememberBlurBackdrop
@@ -103,10 +104,30 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
                             checked = state.falling,
                             onCheckedChange = actions.onSetFalling,
                         )
-                        SwitchPreference(
-                            title = stringResource(R.string.ikun_snow),
-                            checked = state.snow,
-                            onCheckedChange = actions.onSetSnow,
+                        BasicComponent(
+                            title = stringResource(R.string.ikun_effect),
+                            endActions = {
+                                Text(state.effect.label(), color = colorScheme.onSurfaceVariantActions)
+                            },
+                            bottomAction = {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    FallingEffect.entries.forEach { effect ->
+                                        TextButton(
+                                            text = effect.label(),
+                                            onClick = { actions.onSetEffect(effect) },
+                                            modifier = Modifier.weight(1f),
+                                            colors = if (state.effect == effect) {
+                                                ButtonDefaults.textButtonColorsPrimary()
+                                            } else {
+                                                ButtonDefaults.textButtonColors()
+                                            },
+                                        )
+                                    }
+                                }
+                            },
                         )
                         BasicComponent(
                             title = stringResource(R.string.ikun_particle_size),
@@ -138,6 +159,89 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
                 }
                 item {
                     Card(Modifier.padding(top = 12.dp).fillMaxWidth()) {
+                        SwitchPreference(
+                            title = stringResource(R.string.ikun_tilt),
+                            summary = stringResource(R.string.ikun_tilt_summary),
+                            checked = state.tilt,
+                            enabled = state.effect == FallingEffect.SNOW || state.effect == FallingEffect.TROLL,
+                            onCheckedChange = actions.onSetTilt,
+                        )
+                        BasicComponent(
+                            title = stringResource(R.string.ikun_gravity_mode),
+                            summary = stringResource(R.string.ikun_gravity_summary),
+                            endActions = {
+                                Text(
+                                    stringResource(GRAVITY_KEYS[state.gravityMode]),
+                                    color = colorScheme.onSurfaceVariantActions,
+                                )
+                            },
+                            bottomAction = {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    GRAVITY_KEYS.forEachIndexed { index, key ->
+                                        TextButton(
+                                            text = stringResource(key),
+                                            onClick = { actions.onSetGravityMode(index) },
+                                            modifier = Modifier.weight(1f),
+                                            colors = if (state.gravityMode == index) {
+                                                ButtonDefaults.textButtonColorsPrimary()
+                                            } else {
+                                                ButtonDefaults.textButtonColors()
+                                            },
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+                item {
+                    Card(Modifier.padding(top = 12.dp).fillMaxWidth()) {
+                        BasicComponent(
+                            title = stringResource(R.string.ikun_wallpaper),
+                            summary = stringResource(R.string.ikun_wallpaper_summary),
+                        )
+                        BasicComponent(
+                            title = stringResource(R.string.ikun_wallpaper_alpha),
+                            endActions = {
+                                Text("${(state.wallpaperAlpha * 100).roundToInt()}%", color = colorScheme.onSurfaceVariantActions)
+                            },
+                            bottomAction = {
+                                Slider(
+                                    value = state.wallpaperAlpha,
+                                    onValueChange = actions.onSetWallpaperAlpha,
+                                    valueRange = 0f..1f,
+                                )
+                            },
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            TextButton(
+                                text = stringResource(R.string.ikun_wallpaper_pick),
+                                onClick = actions.onPickWallpaper,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.textButtonColorsPrimary(),
+                            )
+                            TextButton(
+                                text = stringResource(R.string.ikun_wallpaper_reset),
+                                onClick = actions.onResetWallpaper,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        SwitchPreference(
+                            title = stringResource(R.string.ikun_announcement),
+                            summary = stringResource(R.string.ikun_announcement_summary),
+                            checked = state.announcementEnabled,
+                            onCheckedChange = actions.onSetAnnouncement,
+                        )
+                    }
+                }
+                item {
+                    Card(Modifier.padding(top = 12.dp).fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(stringResource(R.string.ikun_dialer_description), color = colorScheme.onSurfaceVariantSummary)
                             SelectionContainer {
@@ -159,9 +263,17 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
                         }
                         SwitchPreference(
                             title = stringResource(R.string.ikun_stealth),
+                            summary = stringResource(R.string.ikun_stealth_summary),
                             checked = state.hidden,
                             enabled = !state.busy,
                             onCheckedChange = actions.onSetHidden,
+                        )
+                        SwitchPreference(
+                            title = stringResource(R.string.ikun_kernel_stealth),
+                            summary = stringResource(R.string.ikun_kernel_stealth_summary),
+                            checked = state.kernelStealth,
+                            enabled = !state.busy,
+                            onCheckedChange = actions.onSetKernelStealth,
                         )
                     }
                 }

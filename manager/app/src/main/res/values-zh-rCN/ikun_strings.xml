@@ -1,23 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ikun_settings_title">🐾星棱狐🐾 &#21151;&#33021;</string>
-    <string name="ikun_settings_summary">&#23631;&#24149;&#39128;&#33853;&#21160;&#30011;&#12289;&#25320;&#21495;&#24674;&#22797;&#12289;&#32593;&#39029;&#31649;&#29702;&#22120;</string>
-    <string name="ikun_falling">&#23631;&#24149;&#39128;&#33853;&#21160;&#30011;</string>
-    <string name="ikun_snow">&#20351;&#29992;&#38634;&#33457;&#31890;&#23376;&#65288;&#20851;&#38381;&#21518;&#20026;&#22270;&#26631;&#39128;&#33853;&#65289;</string>
-    <string name="ikun_particle_size">&#39128;&#33853;&#22823;&#23567;</string>
-    <string name="ikun_particle_speed">&#39128;&#33853;&#36895;&#24230;</string>
-    <string name="ikun_stealth">&#38544;&#34255;&#26700;&#38754;&#22270;&#26631;</string>
-    <string name="ikun_web_summary">&#26412;&#26426;&#32593;&#39029;&#31649;&#29702;&#22120;&#65306;127.0.0.1:9178&#65292;&#38656;&#35201; Root&#12290;&#35831;&#20174;&#36825;&#37324;&#25171;&#24320;&#20197;&#23436;&#25104;&#35748;&#35777;&#12290;</string>
-    <string name="ikun_web_open">&#21551;&#21160;&#24182;&#25171;&#24320;&#32593;&#39029;&#31649;&#29702;&#22120;</string>
-    <string name="ikun_web_stop">&#20851;&#38381;&#32593;&#39029;&#31649;&#29702;&#22120;</string>
-    <string name="ikun_web_autostart">&#32593;&#39029;&#31649;&#29702;&#22120;&#24320;&#26426;&#33258;&#21551;</string>
-    <string name="ikun_operation_failed">&#25805;&#20316;&#22833;&#36133;&#65292;&#35831;&#26816;&#26597; Root &#26435;&#38480;&#21644; ksud &#26159;&#21542;&#21305;&#37197;&#12290;</string>
-    <string name="ikun_operation_done">&#25805;&#20316;&#23436;&#25104;</string>
-    <string name="ikun_dialer_description">&#38544;&#34255;&#26700;&#38754;&#22270;&#26631;&#21518;&#65292;&#22312;&#31995;&#32479;&#30005;&#35805;&#25320;&#21495;&#30424;&#36755;&#20837;&#19979;&#26041;&#23436;&#25972;&#20195;&#30721;&#65292;&#21363;&#21487;&#24674;&#22797;&#22270;&#26631;&#12290;&#26080;&#38656;&#25320;&#25171;&#30005;&#35805;&#65307;&#25320;&#21495;&#22120;&#38656;&#35201;&#25903;&#25345; Android &#31192;&#23494;&#20195;&#30721;&#12290;</string>
-    <string name="ikun_copy_code">&#22797;&#21046;&#20195;&#30721;</string>
-    <string name="ikun_code_copied">&#24674;&#22797;&#20195;&#30721;&#24050;&#22797;&#21046;</string>
-    <string name="ikun_open_dialer">&#25171;&#24320;&#25320;&#21495;&#30424;</string>
-    <string name="ikun_dialer_unavailable">&#27492;&#35774;&#22791;&#27809;&#26377;&#21487;&#29992;&#30340;&#30005;&#35805;&#25320;&#21495;&#22120;&#12290;</string>
-    <string name="ikun_icon_restored">🐾星棱狐🐾 &#26700;&#38754;&#22270;&#26631;&#24050;&#24674;&#22797;</string>
-    <string name="ikun_recovery_unavailable">&#25320;&#21495;&#24674;&#22797;&#26381;&#21153;&#21551;&#21160;&#22833;&#36133;&#65292;&#24050;&#20445;&#30041;&#26700;&#38754;&#22270;&#26631;&#12290;&#35831;&#26816;&#26597; Root &#26435;&#38480;&#24182;&#26356;&#26032; ksud&#12290;</string>
+    <string name="ikun_settings_title">🐾星棱狐🐾 功能</string>
+    <string name="ikun_settings_summary">屏幕飘落动画、壁纸、拨号恢复、网页管理器</string>
+    <string name="ikun_falling">屏幕飘落动画</string>
+    <string name="ikun_effect">特效类型</string>
+    <string name="ikun_effect_off">关闭</string>
+    <string name="ikun_effect_snow">下雪</string>
+    <string name="ikun_effect_troll">巨魔雨</string>
+    <string name="ikun_effect_launcher">图标飘落</string>
+    <string name="ikun_tilt">跟随手机倾斜</string>
+    <string name="ikun_tilt_summary">用重力感应让粒子流向屏幕较低的一侧</string>
+    <string name="ikun_gravity_mode">重力方向校准</string>
+    <string name="ikun_gravity_normal">正常</string>
+    <string name="ikun_gravity_mirror_x">左右翻转</string>
+    <string name="ikun_gravity_mirror_y">上下翻转</string>
+    <string name="ikun_gravity_rotate">旋转 180 度</string>
+    <string name="ikun_gravity_summary">仅在粒子流向明显不对时才需要调整</string>
+    <string name="ikun_particle_size">飘落大小</string>
+    <string name="ikun_particle_speed">飘落速度</string>
+    <string name="ikun_wallpaper">背景壁纸</string>
+    <string name="ikun_wallpaper_summary">显示在整个界面下方。图片保存在应用私有目录，不需要任何存储权限。</string>
+    <string name="ikun_wallpaper_pick">选择壁纸</string>
+    <string name="ikun_wallpaper_reset">恢复默认</string>
+    <string name="ikun_wallpaper_alpha">壁纸不透明度</string>
+    <string name="ikun_wallpaper_failed">无法读取所选图片，请换一张。</string>
+    <string name="ikun_wallpaper_picked">壁纸已更新</string>
+    <string name="ikun_wallpaper_cleared">已恢复为内置默认壁纸</string>
+    <string name="ikun_announcement">开屏显示公告</string>
+    <string name="ikun_announcement_summary">关闭后不再弹出开屏公告</string>
+    <string name="ikun_stealth">隐藏桌面图标</string>
+    <string name="ikun_stealth_summary">从桌面移除图标。在系统拨号盘输入恢复代码即可重新显示。</string>
+    <string name="ikun_kernel_stealth">内核隐身模式</string>
+    <string name="ikun_kernel_stealth_summary">内核不再把本应用上报为管理器，整个界面看起来就像没有安装。内核真实权限不变，所以这个开关始终可用。需要刷入用本仓库源码编译的内核。</string>
+    <string name="ikun_web_summary">本机网页管理器：127.0.0.1:9178，需要 Root。请从这里打开以完成认证。</string>
+    <string name="ikun_web_open">启动并打开网页管理器</string>
+    <string name="ikun_web_stop">关闭网页管理器</string>
+    <string name="ikun_web_autostart">网页管理器开机自启</string>
+    <string name="ikun_operation_failed">操作失败，请检查 Root 权限和 ksud 是否匹配。</string>
+    <string name="ikun_operation_done">操作完成</string>
+    <string name="ikun_dialer_description">隐藏桌面图标后，在系统电话拨号盘输入下方完整代码，即可恢复图标。无需拨打电话；拨号器需要支持 Android 秘密代码。</string>
+    <string name="ikun_copy_code">复制代码</string>
+    <string name="ikun_code_copied">恢复代码已复制</string>
+    <string name="ikun_open_dialer">打开拨号盘</string>
+    <string name="ikun_dialer_unavailable">此设备没有可用的电话拨号器。</string>
+    <string name="ikun_icon_restored">🐾星棱狐🐾 桌面图标已恢复</string>
+    <string name="ikun_recovery_unavailable">拨号恢复服务启动失败，已保留桌面图标。请检查 Root 权限并更新 ksud。</string>
+
+    <!-- 开屏公告。改动标题或正文后，指纹会自动变化，老用户只会再看到一次。 -->
+    <string name="announcement_title">🐾星棱狐🐾</string>
+    <string name="announcement_body" formatted="false">个性化功能已上线。
+
+**本次更新**
+- 下雪与巨魔雨特效，由重力感应驱动
+- 自定义背景壁纸，可调节不透明度
+- 开屏公告，可在设置里彻底关闭
+
+**隐身模式**
+隐藏桌面图标后，可在设置里用恢复代码重新显示。
+
+内核与用户空间的接口名称保持不变，现有模块与官方 ksud 仍然兼容。</string>
+    <string name="announcement_confirm">我知道了</string>
 </resources>

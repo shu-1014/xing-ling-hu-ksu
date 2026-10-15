@@ -5,11 +5,15 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
+    <!--
+        启动动画已移除：duration 设为 0，且不再使用带淡入淡出的动图图标。
+        这里只保留一张静态图标，作为冷启动瞬间的占位，首帧内容准备好就收起。
+    -->
     <style name="Theme.KernelSU.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@android:color/background_light</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/ic_splash_background</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_splash</item>
-        <item name="windowSplashScreenAnimationDuration">500</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="postSplashScreenTheme">@style/Theme.KernelSU</item>
     </style>
 

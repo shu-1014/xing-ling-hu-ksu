@@ -39,6 +39,7 @@ import com.xinglinghu.manager.ui.component.material.ExpressiveSwitch
 import com.xinglinghu.manager.ui.component.material.TonalCard
 import com.xinglinghu.manager.ui.component.material.TopBarBackButton
 import com.xinglinghu.manager.ui.component.material.expressiveTopAppBarColors
+import com.xinglinghu.manager.ui.cosmetic.FallingEffect
 import kotlin.math.roundToInt
 
 @Composable
@@ -66,7 +67,12 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
                 TonalCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Toggle(stringResource(R.string.ikun_falling), state.falling, onCheckedChange = actions.onSetFalling)
-                        Toggle(stringResource(R.string.ikun_snow), state.snow, onCheckedChange = actions.onSetSnow)
+                        ChoiceRow(
+                            title = stringResource(R.string.ikun_effect),
+                            options = FallingEffect.entries.map { it.label() },
+                            selectedIndex = FallingEffect.entries.indexOf(state.effect),
+                            onSelected = { actions.onSetEffect(FallingEffect.entries[it]) },
+                        )
                         SliderOption(
                             title = stringResource(R.string.ikun_particle_size),
                             value = state.particleScale,
@@ -78,6 +84,68 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
                             value = state.speed,
                             range = 0.3f..3f,
                             onValueChange = actions.onSetSpeed,
+                        )
+                    }
+                }
+            }
+            item {
+                TonalCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Toggle(
+                            title = stringResource(R.string.ikun_tilt),
+                            checked = state.tilt,
+                            enabled = state.effect == FallingEffect.SNOW || state.effect == FallingEffect.TROLL,
+                            onCheckedChange = actions.onSetTilt,
+                        )
+                        Text(
+                            stringResource(R.string.ikun_tilt_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        ChoiceRow(
+                            title = stringResource(R.string.ikun_gravity_mode),
+                            options = GRAVITY_KEYS.map { stringResource(it) },
+                            selectedIndex = state.gravityMode,
+                            onSelected = actions.onSetGravityMode,
+                        )
+                        Text(
+                            stringResource(R.string.ikun_gravity_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            item {
+                TonalCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            stringResource(R.string.ikun_wallpaper_summary),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        SliderOption(
+                            title = stringResource(R.string.ikun_wallpaper_alpha),
+                            value = state.wallpaperAlpha,
+                            range = 0f..1f,
+                            onValueChange = actions.onSetWallpaperAlpha,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(onClick = actions.onPickWallpaper, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.ikun_wallpaper_pick))
+                            }
+                            FilledTonalButton(onClick = actions.onResetWallpaper, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.ikun_wallpaper_reset))
+                            }
+                        }
+                        Toggle(
+                            title = stringResource(R.string.ikun_announcement),
+                            checked = state.announcementEnabled,
+                            onCheckedChange = actions.onSetAnnouncement,
+                        )
+                        Text(
+                            stringResource(R.string.ikun_announcement_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -98,6 +166,22 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
                             }
                         }
                         Toggle(stringResource(R.string.ikun_stealth), state.hidden, enabled = !state.busy, onCheckedChange = actions.onSetHidden)
+                        Text(
+                            stringResource(R.string.ikun_stealth_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Toggle(
+                            title = stringResource(R.string.ikun_kernel_stealth),
+                            checked = state.kernelStealth,
+                            enabled = !state.busy,
+                            onCheckedChange = actions.onSetKernelStealth,
+                        )
+                        Text(
+                            stringResource(R.string.ikun_kernel_stealth_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -143,6 +227,35 @@ private fun Toggle(title: String, checked: Boolean, enabled: Boolean = true, onC
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         ExpressiveSwitch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+@Composable
+private fun ChoiceRow(
+    title: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+) {
+    Column {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEachIndexed { index, option ->
+                val selected = index == selectedIndex
+                if (selected) {
+                    Button(onClick = { onSelected(index) }, modifier = Modifier.weight(1f)) {
+                        Text(option, maxLines = 1)
+                    }
+                } else {
+                    FilledTonalButton(onClick = { onSelected(index) }, modifier = Modifier.weight(1f)) {
+                        Text(option, maxLines = 1)
+                    }
+                }
+            }
+        }
     }
 }
 

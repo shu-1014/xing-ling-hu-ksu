@@ -1,22 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/ic_logo_vector">
-    <target
-        android:name="outline_a_horizontal"
-        android:animation="@animator/anim_outline_horizontal" />
-    <target
-        android:name="outline_a_vertical"
-        android:animation="@animator/anim_outline_vertical" />
-    <target
-        android:name="outline_b_horizontal"
-        android:animation="@animator/anim_outline_horizontal" />
-    <target
-        android:name="outline_b_vertical"
-        android:animation="@animator/anim_outline_vertical" />
-    <target
-        android:name="square_a"
-        android:animation="@animator/anim_square_path" />
-    <target
-        android:name="square_b"
-        android:animation="@animator/anim_square_path_rev" />
-</animated-vector>
+<!--
+    启动图标的静态版本。
+    原先这里是 animated-vector，会播放「四条棱线展开 + 方块聚合」的动画；
+    启动动画已整体移除，这里只保留最终静止画面。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="500"
+    android:viewportHeight="500">
+    <group
+        android:name="splash_content"
+        android:pivotX="250"
+        android:pivotY="250"
+        android:scaleX="0.60"
+        android:scaleY="0.60">
+        <path
+            android:fillColor="@color/ic_splash_background"
+            android:pathData="M135,25h230a110,110 0 0 1 110,110v230a110,110 0 0 1 -110,110h-230a110,110 0 0 1 -110,-110v-230a110,110 0 0 1 110,-110z" />
+        <group
+            android:pivotX="250"
+            android:pivotY="250"
+            android:scaleX="0.68"
+            android:scaleY="0.68">
+            <!-- 四条棱线，直接画成完整线段（去掉 trimPath 动画） -->
+            <path
+                android:fillColor="@android:color/transparent"
+                android:pathData="M60,60 H440"
+                android:strokeWidth="20"
+                android:strokeColor="@color/ic_launcher_foreground"
+                android:strokeLineCap="square" />
+            <path
+                android:fillColor="@android:color/transparent"
+                android:pathData="M440,60 V440"
+                android:strokeWidth="20"
+                android:strokeColor="@color/ic_launcher_foreground"
+                android:strokeLineCap="square" />
+            <path
+                android:fillColor="@android:color/transparent"
+                android:pathData="M440,440 H60"
+                android:strokeWidth="20"
+                android:strokeColor="@color/ic_launcher_foreground"
+                android:strokeLineCap="square" />
+            <path
+                android:fillColor="@android:color/transparent"
+                android:pathData="M60,440 V60"
+                android:strokeWidth="20"
+                android:strokeColor="@color/ic_launcher_foreground"
+                android:strokeLineCap="square" />
+            <!-- 两个方块，直接画在动画结束时的位置 -->
+            <path
+                android:fillColor="@color/ic_launcher_foreground"
+                android:pathData="M240,240h210v210h-210z" />
+            <path
+                android:fillColor="@color/ic_launcher_foreground"
+                android:pathData="M50,50h210v210h-210z" />
+        </group>
+    </group>
+</vector>

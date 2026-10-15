@@ -3,7 +3,6 @@ package com.xinglinghu.manager.ui
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -65,9 +64,12 @@ import com.xinglinghu.manager.ui.component.bottombar.NavigationBadgeState
 import com.xinglinghu.manager.ui.component.bottombar.SideRail
 import com.xinglinghu.manager.ui.component.bottombar.rememberMainPagerState
 import com.xinglinghu.manager.ui.component.bottombar.useNavigationRail
+import com.xinglinghu.manager.ui.cosmetic.AnnouncementPopup
 import com.xinglinghu.manager.ui.cosmetic.CosmeticState
 import com.xinglinghu.manager.ui.cosmetic.FallingOverlay
 import com.xinglinghu.manager.ui.cosmetic.LocalCosmeticState
+import com.xinglinghu.manager.ui.cosmetic.WallpaperHost
+import com.xinglinghu.manager.ui.cosmetic.WallpaperStore
 import com.xinglinghu.manager.ui.navigation3.IntentDispatcher
 import com.xinglinghu.manager.ui.navigation3.LocalNavigator
 import com.xinglinghu.manager.ui.navigation3.Navigator
@@ -123,17 +125,14 @@ class MainActivity : ComponentActivity() {
 
     private val intentChannel = Channel<Intent>(capacity = Channel.BUFFERED)
     private var contentReady = false
-    private var splashStartedAt = 0L
-    private val splashAnimationDurationMs = 500L
 
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
-        splashStartedAt = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition {
-            !contentReady || SystemClock.uptimeMillis() - splashStartedAt < splashAnimationDurationMs
-        }
+        // 启动动画已移除：首帧内容准备好就立刻收起启动图，
+        // 不再强制停留固定时长。
+        splashScreen.setKeepOnScreenCondition { !contentReady }
 
         val isManager = Natives.isManager
         if (isManager && Natives.kernelUAPIVersion == Natives.managerUAPIVersion) {
@@ -149,6 +148,14 @@ class MainActivity : ComponentActivity() {
         }
 
         if (savedInstanceState == null) intent?.let { intentChannel.trySend(it) }
+
+        // The wallpaper store is process-global and needs the application context
+        // before any composable can resolve a slot. Seeding runs off the main
+        // thread: it copies bundled art into private storage on first launch only.
+        WallpaperStore.init(this)
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) { WallpaperStore.seedDefaultsIfNeeded() }
+        }
 
         setContent {
             val cosmeticState = remember { CosmeticState(applicationContext) }
@@ -262,16 +269,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    Box {
-                        when (uiMode) {
-                            UiMode.Material -> androidx.compose.material3.Scaffold(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
-                            ) { navDisplay() }
+                    WallpaperHost(alpha = cosmeticState.wallpaperAlpha) {
+                        Box {
+                            when (uiMode) {
+                                UiMode.Material -> androidx.compose.material3.Scaffold(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                                ) { navDisplay() }
 
-                            UiMode.Miuix -> Scaffold { navDisplay() }
+                                UiMode.Miuix -> Scaffold { navDisplay() }
+                            }
+                            FallingOverlay(cosmeticState)
                         }
-                        FallingOverlay(cosmeticState)
                     }
+                    AnnouncementPopup(freshStart = savedInstanceState == null)
                     SideEffect { contentReady = true }
                 }
             }

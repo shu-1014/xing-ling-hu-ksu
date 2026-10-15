@@ -3,10 +3,35 @@
     <string name="ikun_settings_title">🐾星棱狐🐾 features</string>
     <string name="ikun_settings_summary">Falling animation, dialer recovery and web manager</string>
     <string name="ikun_falling">Falling animation</string>
-    <string name="ikun_snow">Use snow particles instead of the launcher image</string>
+    <string name="ikun_effect">Effect</string>
+    <string name="ikun_effect_off">Off</string>
+    <string name="ikun_effect_snow">Snow</string>
+    <string name="ikun_effect_troll">Troll rain</string>
+    <string name="ikun_effect_launcher">Launcher icon</string>
+    <string name="ikun_tilt">Follow device tilt</string>
+    <string name="ikun_tilt_summary">Particles drift toward the low side of the screen using the gravity sensor</string>
+    <string name="ikun_gravity_mode">Gravity sensor calibration</string>
+    <string name="ikun_gravity_normal">Normal</string>
+    <string name="ikun_gravity_mirror_x">Mirror left-right</string>
+    <string name="ikun_gravity_mirror_y">Mirror up-down</string>
+    <string name="ikun_gravity_rotate">Rotate 180 degrees</string>
+    <string name="ikun_gravity_summary">Change this only if particles flow the wrong way on your device</string>
     <string name="ikun_particle_size">Particle size</string>
     <string name="ikun_particle_speed">Falling speed</string>
+    <string name="ikun_wallpaper">Wallpaper</string>
+    <string name="ikun_wallpaper_summary">Shown behind the whole app. Stored in the app\'s private storage, so no storage permission is needed.</string>
+    <string name="ikun_wallpaper_pick">Choose image</string>
+    <string name="ikun_wallpaper_reset">Reset to default</string>
+    <string name="ikun_wallpaper_alpha">Wallpaper opacity</string>
+    <string name="ikun_wallpaper_failed">Could not read that image. Pick another one.</string>
+    <string name="ikun_wallpaper_picked">Wallpaper updated</string>
+    <string name="ikun_wallpaper_cleared">Wallpaper reset to the bundled default</string>
+    <string name="ikun_announcement">Show announcement at launch</string>
+    <string name="ikun_announcement_summary">Turn off to never see the launch notice again</string>
     <string name="ikun_stealth">Hide launcher icon</string>
+    <string name="ikun_stealth_summary">Removes the icon from the launcher. Enter the recovery code in the system dialer to bring it back.</string>
+    <string name="ikun_kernel_stealth">Kernel stealth mode</string>
+    <string name="ikun_kernel_stealth_summary">The kernel stops reporting this app as the manager, so the whole interface looks like nothing is installed. Root privileges are unaffected, so this switch keeps working. Requires a kernel built from this source tree.</string>
     <string name="ikun_web_summary">Local web manager at 127.0.0.1:9178. Root is required. Open it here to authenticate.</string>
     <string name="ikun_web_open">Start and open web manager</string>
     <string name="ikun_web_stop">Stop web manager</string>
@@ -20,4 +45,20 @@
     <string name="ikun_dialer_unavailable">No phone dialer is available on this device.</string>
     <string name="ikun_recovery_unavailable">Dialer recovery could not start. The launcher icon remains visible. Check Root access and update ksud.</string>
     <string name="ikun_icon_restored">🐾星棱狐🐾 launcher icon restored</string>
+
+    <!-- Launch announcement. Editing either string re-arms the sheet once, because
+         dismissal is tracked by a fingerprint of the title and body together. -->
+    <string name="announcement_title">🐾星棱狐🐾</string>
+    <string name="announcement_body" formatted="false">Personalization has arrived.
+
+**What\'s new**
+- Snow and troll-rain effects, driven by the gravity sensor
+- Custom wallpaper with adjustable opacity
+- Launch announcement you can switch off
+
+**Stealth**
+Hide the launcher icon and restore it later with the recovery code in Settings.
+
+Kernel and userspace interfaces keep their original names, so existing modules and the official ksud stay compatible.</string>
+    <string name="announcement_confirm">Got it</string>
 </resources>
