@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ikun_settings_title">🐾星棱狐🐾 features</string>
+    <string name="ikun_settings_summary">Falling animation, dialer recovery and web manager</string>
+    <string name="ikun_falling">Falling animation</string>
+    <string name="ikun_snow">Use snow particles instead of the launcher image</string>
+    <string name="ikun_particle_size">Particle size</string>
+    <string name="ikun_particle_speed">Falling speed</string>
+    <string name="ikun_stealth">Hide launcher icon</string>
+    <string name="ikun_web_summary">Local web manager at 127.0.0.1:9178. Root is required. Open it here to authenticate.</string>
+    <string name="ikun_web_open">Start and open web manager</string>
+    <string name="ikun_web_stop">Stop web manager</string>
+    <string name="ikun_web_autostart">Start web manager at boot</string>
+    <string name="ikun_operation_failed">Operation failed. Check root access and the matching ksud build.</string>
+    <string name="ikun_operation_done">Done</string>
+    <string name="ikun_dialer_description">Hide the launcher icon, then enter the code below in the system phone dialer to restore it. No call is needed. Your dialer must support Android secret codes.</string>
+    <string name="ikun_copy_code">Copy code</string>
+    <string name="ikun_code_copied">Recovery code copied</string>
+    <string name="ikun_open_dialer">Open dialer</string>
+    <string name="ikun_dialer_unavailable">No phone dialer is available on this device.</string>
+    <string name="ikun_recovery_unavailable">Dialer recovery could not start. The launcher icon remains visible. Check Root access and update ksud.</string>
+    <string name="ikun_icon_restored">🐾星棱狐🐾 launcher icon restored</string>
+</resources>

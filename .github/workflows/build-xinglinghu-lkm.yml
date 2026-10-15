@@ -1,0 +1,164 @@
+name: Build 星棱狐 LKM
+
+# Builds kernelsu.ko with THIS project's manager package name and signing
+# certificate baked in, so the kernel will crown 🐾星棱狐🐾 as its manager.
+#
+# The prebuilt modules on KernelSU's release page are useless here: they are
+# compiled with upstream's values (me.weishu.kernelsu + upstream cert hash),
+# so they load fine but never hand root to the rebranded manager.
+#
+# Run it from the Actions tab: "Run workflow".
+
+on:
+  workflow_dispatch:
+    inputs:
+      kmi:
+        description: 'KMI to build (comma separated, or "all")'
+        required: true
+        default: 'all'
+        type: string
+      package_name:
+        description: 'Manager package name'
+        required: true
+        default: 'com.xinglinghu.manager'
+        type: string
+      expected_hash:
+        description: 'Manager signing certificate SHA-256'
+        required: true
+        default: 'ff7d77b3f5ee160dfcac5ff8a42d7a31eb825b2d88f83017b8323dd51c6c3b8d'
+        type: string
+      expected_size:
+        description: 'Manager signing certificate DER size'
+        required: true
+        default: '0x033b'
+        type: string
+      ksu_version:
+        description: 'KSU_VERSION to pin (must equal the manager APK versionCode)'
+        required: true
+        default: '30008'
+        type: string
+
+jobs:
+  # Turn the "all / comma separated" input into a real matrix.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      buildable: ${{ steps.set.outputs.buildable }}
+    steps:
+      - id: set
+        run: |
+          ALL="android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18"
+          IN="${{ inputs.kmi }}"
+          if [ "$IN" = "all" ] || [ -z "$IN" ]; then
+            SEL="$ALL"
+          else
+            SEL=""
+            for want in $(echo "$IN" | tr ',' ' '); do
+              found=0
+              for k in $ALL; do
+                if [ "$want" = "$k" ]; then found=1; break; fi
+              done
+              if [ "$found" = "1" ]; then
+                SEL="$SEL $want"
+              else
+                echo "::error::unknown KMI '$want'; valid: $ALL"
+                exit 1
+              fi
+            done
+          fi
+          SEL=$(echo "$SEL" | xargs)
+          echo "selected: $SEL"
+          JSON=$(printf '%s\n' $SEL | jq -R . | jq -sc .)
+          echo "matrix={\"kmi\":$JSON}" >> $GITHUB_OUTPUT
+          echo "buildable=$SEL" >> $GITHUB_OUTPUT
+
+  build-lkm:
+    needs: prepare
+    name: ${{ matrix.kmi }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    container:
+      # ddk-min images ship the kernel source tarball + matching Clang.
+      # Swap the registry to docker.cnb.cool/ylarod/ddk-min if ghcr.io is slow.
+      image: ghcr.io/ylarod/ddk-min:${{ matrix.kmi }}-20260828
+      options: --privileged
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build kernelsu.ko
+        run: |
+          set -eux
+          cd kernel
+
+          # Our Kbuild already defaults to the right package name and cert hash,
+          # but pass them explicitly so this workflow is self-documenting and
+          # survives a Kbuild edit.
+          make CONFIG_KSU=m CC=clang \
+            KSU_PACKAGE_NAME="${{ inputs.package_name }}" \
+            KSU_EXPECTED_SIZE="${{ inputs.expected_size }}" \
+            KSU_EXPECTED_HASH="${{ inputs.expected_hash }}" \
+            KSU_VERSION_OVERRIDE="${{ inputs.ksu_version }}"
+
+      - name: Verify the module was built for OUR manager
+        run: |
+          set -eux
+          cd kernel
+          test -f kernelsu.ko || { echo "::error::kernelsu.ko missing"; exit 1; }
+
+          # Fail loudly if the binary does not carry our identity. Without this
+          # check the module would silently be an upstream-identity build.
+          if ! grep -aq "com.xinglinghu.manager" kernelsu.ko; then
+            echo "::error::kernelsu.ko does not contain the manager package name"
+            exit 1
+          fi
+          if ! grep -aq "${{ inputs.expected_hash }}" kernelsu.ko; then
+            echo "::error::kernelsu.ko does not contain the expected cert hash"
+            exit 1
+          fi
+          if grep -aq "c371061b19d8c7d7d6133c6a9bafe198fa944e50c1b31c9d8daa8d7f1fc2d2d6" kernelsu.ko; then
+            echo "::error::kernelsu.ko still carries UPSTREAM's cert hash"
+            exit 1
+          fi
+          echo "identity checks passed"
+
+      - name: Strip debug info
+        run: |
+          set -eux
+          cd kernel
+          llvm-strip -d kernelsu.ko || true
+          ls -l kernelsu.ko
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lkm-arm64-${{ matrix.kmi }}
+          path: kernel/kernelsu.ko
+          if-no-files-found: error
+
+  # Zip every artifact into one download so the result is easy to move to a phone.
+  collect:
+    needs: build-lkm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: lkm
+
+      - name: Rename to <kmi>_kernelsu.ko
+        run: |
+          set -eux
+          mkdir -p out
+          for d in lkm/lkm-arm64-*; do
+            kmi="${d#lkm/lkm-arm64-}"
+            cp "$d/kernelsu.ko" "out/${kmi}_kernelsu.ko"
+          done
+          ls -l out/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xinglinghu-lkm-all
+          path: out/*.ko
+          if-no-files-found: error

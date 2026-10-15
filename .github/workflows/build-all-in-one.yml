@@ -1,0 +1,381 @@
+name: 一体构建管理器《U》
+
+# 一条龙：编译 kernelsu.ko → 编译 ksud/ksuinit → 打包一个「开箱即用」的 root 管理器 APK。
+#
+# 产物里的 libksud.so 已经内嵌了本次编译出来的 LKM，所以装完不需要再单独找 ko，
+# 管理器走默认的修补流程就会用上这份带你自己包名/签名的模块。
+
+on:
+  workflow_dispatch:
+    inputs:
+      kmi:
+        description: '要内嵌的 KMI（逗号分隔或 all）。建议只填一个，见 README'
+        required: true
+        default: 'android14-6.1'
+        type: string
+      package_name:
+        description: '管理器包名'
+        required: true
+        default: 'com.xinglinghu.manager'
+        type: string
+      expected_hash:
+        description: '管理器签名证书 SHA-256'
+        required: true
+        default: 'ff7d77b3f5ee160dfcac5ff8a42d7a31eb825b2d88f83017b8323dd51c6c3b8d'
+        type: string
+      expected_size:
+        description: '管理器签名证书 DER 长度'
+        required: true
+        default: '0x033b'
+        type: string
+      version_code:
+        description: '版本号 versionCode（同时决定内核上报的 KSU_VERSION）'
+        required: true
+        default: '30008'
+        type: string
+      version_name:
+        description: '版本名 versionName'
+        required: true
+        default: 'v3.4.1-xinglinghu'
+        type: string
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. 把 "all / 逗号分隔" 解析成矩阵
+  # ---------------------------------------------------------------------------
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      count: ${{ steps.set.outputs.count }}
+    steps:
+      - id: set
+        run: |
+          ALL="android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18"
+          IN="${{ inputs.kmi }}"
+          if [ "$IN" = "all" ] || [ -z "$IN" ]; then
+            SEL="$ALL"
+          else
+            SEL=""
+            for want in $(echo "$IN" | tr ',' ' '); do
+              found=0
+              for k in $ALL; do
+                if [ "$want" = "$k" ]; then found=1; break; fi
+              done
+              if [ "$found" = "1" ]; then
+                SEL="$SEL $want"
+              else
+                echo "::error::unknown KMI '$want'; valid: $ALL"
+                exit 1
+              fi
+            done
+          fi
+          SEL=$(echo "$SEL" | xargs)
+          N=$(echo "$SEL" | wc -w)
+          echo "selected ($N): $SEL"
+          JSON=$(printf '%s\n' $SEL | jq -R . | jq -sc .)
+          echo "matrix={\"kmi\":$JSON}" >> $GITHUB_OUTPUT
+          echo "count=$N" >> $GITHUB_OUTPUT
+
+      - name: Warn when bundling many KMIs
+        if: ${{ steps.set.outputs.count > 2 }}
+        run: |
+          echo "::warning::内嵌 ${{ steps.set.outputs.count }} 个 KMI 会让 APK 变大很多。"
+          echo "::warning::LKM 是用你给的包名/哈希预编译的，与设备内核版本无关，"
+          echo "::warning::所以只内嵌你自己设备那一个 KMI 就够用了，体积也小。"
+
+  # ---------------------------------------------------------------------------
+  # 2. 编译 kernelsu.ko（复用上游的 ddk-lkm，输入来自上面的参数）
+  # ---------------------------------------------------------------------------
+  build-lkm:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/ddk-lkm.yml
+    with:
+      kmi: ${{ matrix.kmi }}
+      package_name: ${{ inputs.package_name }}
+      expected_size: ${{ inputs.expected_size }}
+      expected_hash: ${{ inputs.expected_hash }}
+
+  # ---------------------------------------------------------------------------
+  # 3. 校验 LKM 真的是给我们的管理器编的
+  #    上游的 ddk-lkm 不检查这个，而"包名对了、哈希还是上游的"正是踩过的坑。
+  # ---------------------------------------------------------------------------
+  verify-lkm:
+    needs: build-lkm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '*-lkm'
+          path: lkm
+          merge-multiple: true
+
+      - name: Check identity baked into the module
+        env:
+          PKG: ${{ inputs.package_name }}
+          HASH: ${{ inputs.expected_hash }}
+        run: |
+          set -eu
+          ls -l lkm/
+          fail=0
+          for ko in lkm/*.ko; do
+            [ -e "$ko" ] || { echo "::error::no .ko files downloaded"; exit 1; }
+            echo "--- $ko ---"
+            if grep -aq "$PKG" "$ko"; then
+              echo "  ok: contains $PKG"
+            else
+              echo "::error file=$ko::missing package name $PKG"; fail=1
+            fi
+            if grep -aq "$HASH" "$ko"; then
+              echo "  ok: contains expected cert hash"
+            else
+              echo "::error file=$ko::missing cert hash $HASH"; fail=1
+            fi
+            if grep -aq "c371061b19d8c7d7d6133c6a9bafe198fa944e50c1b31c9d8daa8d7f1fc2d2d6" "$ko"; then
+              echo "::error file=$ko::still carries UPSTREAM cert hash"; fail=1
+            fi
+          done
+          [ "$fail" = "0" ] || exit 1
+          echo "all modules carry this project's identity"
+
+  # ---------------------------------------------------------------------------
+  # 4. ksuinit（和上游一样，3 个架构）
+  # ---------------------------------------------------------------------------
+  build-ksuinit:
+    needs: verify-lkm
+    uses: ./.github/workflows/ksuinit.yml
+
+  # ---------------------------------------------------------------------------
+  # 5. 编译 ksud，并把 LKM + ksuinit 一起内嵌进去
+  # ---------------------------------------------------------------------------
+  build-ksud:
+    needs: [verify-lkm, build-ksuinit]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-linux-android
+          - target: x86_64-linux-android
+          - target: riscv64-linux-android
+    uses: ./.github/workflows/ksud.yml
+    with:
+      target: ${{ matrix.target }}
+      pack_lkm: true
+      pack_ksuinit: true
+
+  # ---------------------------------------------------------------------------
+  # 6. 编译管理器 APK
+  #    深克隆：build.gradle.kts 用 git rev-list --count HEAD 算 versionCode，
+  #    浅克隆会算错。这里顺手把它固定成输入的 version_code/version_name。
+  # ---------------------------------------------------------------------------
+  build-manager:
+    needs: build-ksud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Pin versionCode / versionName
+        run: |
+          set -eu
+          f=manager/build.gradle.kts
+          cp "$f" "$f.orig"
+          python3 - "$f" <<'PY'
+          import re, sys
+          p = sys.argv[1]
+          s = open(p, encoding='utf-8').read()
+
+          def sub(fn, body):
+              global s
+              new, n = re.subn(
+                  r'(fun %s\(\): (?:Int|String) \{\n)(?:.*?\n)*?(\})' % fn,
+                  lambda m: m.group(1) + body + '\n' + m.group(2),
+                  s, count=1, flags=re.S)
+              if n != 1:
+                  sys.exit('could not rewrite %s()' % fn)
+              s = new
+
+          sub('getVersionCode', '    return %s' % '${{ inputs.version_code }}')
+          sub('getVersionName', '    return "%s"' % '${{ inputs.version_name }}')
+          open(p, 'w', encoding='utf-8').write(s)
+          print('patched', p)
+          PY
+          echo "--- diff ---"
+          diff -u "$f.orig" "$f" || true
+
+      - name: Download LKMs (so the built APK is self-contained too)
+        uses: actions/download-artifact@v8
+        with:
+          pattern: '*-lkm'
+          path: /tmp/lkm
+          merge-multiple: true
+
+      - name: Place LKMs where ksud embeds them
+        run: |
+          set -eu
+          cp /tmp/lkm/aarch64-*.ko userspace/ksud/bin/aarch64/ 2>/dev/null || \
+            cp /tmp/lkm/*_kernelsu.ko userspace/ksud/bin/aarch64/
+          cp /tmp/lkm/x86_64-*.ko userspace/ksud/bin/x86_64/ 2>/dev/null || true
+          ls -l userspace/ksud/bin/aarch64/ userspace/ksud/bin/x86_64/
+
+      - name: Download ksud + ksuinit artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/arts
+
+      - name: Place libksud.so for each ABI
+        run: |
+          set -eu
+          for t in aarch64 x86_64 riscv64; do
+            d=$(find /tmp/arts -type d -name "ksud-${t}-linux-android" | head -n 1)
+            [ -n "$d" ] || { echo "::error::missing ksud for $t"; exit 1; }
+            src=$(find "$d" -type f -name ksud | head -n 1)
+            [ -n "$src" ] || { echo "::error::ksud binary missing in $d"; exit 1; }
+            case "$t" in
+              aarch64) abi=arm64-v8a ;;
+              x86_64)  abi=x86_64 ;;
+              riscv64) abi=riscv64 ;;
+            esac
+            mkdir -p "manager/app/src/main/jniLibs/$abi"
+            cp -f "$src" "manager/app/src/main/jniLibs/$abi/libksud.so"
+            echo "$abi <- $src ($(stat -c%s "$src") bytes)"
+          done
+
+      - name: Verify each libksud.so really embeds our LKM set
+        env:
+          PKG: ${{ inputs.package_name }}
+        run: |
+          set -eu
+          for abi in arm64-v8a x86_64 riscv64; do
+            f="manager/app/src/main/jniLibs/$abi/libksud.so"
+            echo "--- $abi ---"
+            grep -aq "$PKG" "$f" && echo "  ok: package name present" \
+              || { echo "::error::$f does not embed $PKG"; exit 1; }
+          done
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # 签名：用仓库 Secrets 里的正式密钥。没配就跳过签名，产物是未签名的。
+      - name: Prepare signing key
+        id: sign
+        env:
+          KS_B64: ${{ secrets.KEYSTORE }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -eu
+          if [ -n "${KS_B64:-}" ]; then
+            echo "$KS_B64" | base64 -d > manager/xinglinghu-release.jks
+            {
+              echo "KEYSTORE_FILE=xinglinghu-release.jks"
+              echo "KEYSTORE_PASSWORD=$KS_PASS"
+              echo "KEY_ALIAS=$KEY_ALIAS"
+              echo "KEY_PASSWORD=$KEY_PASS"
+            } >> manager/gradle.properties
+            echo "signed=true" >> $GITHUB_OUTPUT
+            echo "已配置签名密钥，产物将被签名"
+          else
+            echo "signed=false" >> $GITHUB_OUTPUT
+            echo "::warning::仓库没有配置 KEYSTORE 等 Secrets，产物为未签名 APK"
+            echo "::warning::未签名的 APK 装不上；请配置 Secrets 或本地重新签名"
+          fi
+
+      - name: Build release APK
+        working-directory: manager
+        run: ./gradlew clean assembleRelease --console=plain --no-daemon
+
+      - name: Report what was built
+        run: |
+          set -eu
+          apk=$(find manager/app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          [ -n "$apk" ] || { echo "::error::no APK produced"; exit 1; }
+          ls -l "$apk"
+          echo "APK=$apk" >> $GITHUB_ENV
+          echo "APK_NAME=$(basename "$apk")" >> $GITHUB_ENV
+
+      - name: Verify APK identity and content
+        env:
+          PKG: ${{ inputs.package_name }}
+          VCODE: ${{ inputs.version_code }}
+        run: |
+          set -eu
+          apk="$APK"
+          # aapt2 ships with the Android SDK set up by setup-android
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -n 1)
+          [ -n "$AAPT" ] || { echo "::error::aapt2 not found"; exit 1; }
+
+          badging=$("$AAPT" dump badging "$apk")
+          echo "$badging" | head -n 3
+
+          echo "$badging" | grep -q "name='$PKG'" \
+            || { echo "::error::APK package name is not $PKG"; exit 1; }
+          echo "$badging" | grep -q "versionCode='$VCODE'" \
+            || { echo "::error::APK versionCode is not $VCODE"; exit 1; }
+
+          # 每个 ABI 都要有，且都要内嵌我们的包名
+          for abi in arm64-v8a x86_64 riscv64; do
+            unzip -p "$apk" "lib/$abi/libksud.so" > "/tmp/ksud-$abi.so" \
+              || { echo "::error::APK missing lib/$abi/libksud.so"; exit 1; }
+            grep -aq "$PKG" "/tmp/ksud-$abi.so" \
+              || { echo "::error::lib/$abi/libksud.so lacks $PKG"; exit 1; }
+            echo "  ok: lib/$abi/libksud.so embeds $PKG"
+          done
+
+          echo "APK 校验通过"
+
+      - name: Show signing status
+        if: ${{ steps.sign.outputs.signed == 'true' }}
+        run: |
+          set -eu
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -n 1)
+          "$APKSIGNER" verify --print-certs "$APK"
+
+      - name: Stage deliverable
+        run: |
+          set -eu
+          mkdir -p dist
+          out="dist/星棱狐管理器_${{ inputs.version_name }}.apk"
+          cp "$APK" "$out"
+          sha256sum "$out" | tee dist/SHA256SUMS.txt
+          echo "OUT=$out" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: 一体构建-管理器APK
+          path: dist/*
+          if-no-files-found: error
+
+      # LKM 也一起给，方便以后单独用「使用本地 LKM 文件」的方式修补
+      - uses: actions/upload-artifact@v7
+        with:
+          name: 一体构建-LKM模块
+          path: /tmp/lkm/*.ko
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          {
+            echo "## 🐾星棱狐🐾 一体构建完成"
+            echo ""
+            echo "| 项目 | 值 |"
+            echo "| --- | --- |"
+            echo "| 包名 | \`${{ inputs.package_name }}\` |"
+            echo "| 版本 | \`${{ inputs.version_name }}\` (code ${{ inputs.version_code }}) |"
+            echo "| 内嵌 KMI | \`${{ inputs.kmi }}\` |"
+            echo "| 签名 | ${{ steps.sign.outputs.signed == 'true' && '已签名' || '**未签名**' }} |"
+            echo ""
+            echo "下载 **一体构建-管理器APK**，安装即可。"
+            echo "首次打开后进「安装」选 boot 镜像，管理器会直接用它内嵌的模块修补。"
+          } >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,29 @@
+# 🐾星棱狐🐾 模块与 Magisk 的差异 {#title}
+
+虽然 🐾星棱狐🐾 模块与 Magisk 模块有很多相似之处，但由于它们的实现机制完全不同，因此不可避免地会有一些差异；如果你希望你的模块能同时在 Magisk 与 🐾星棱狐🐾 中运行，那么你必须了解这些差异。
+
+## 相同之处 {#similarities}
+
+- 模块文件格式: 都以 zip 的方式组织模块，并且模块的格式几乎相同
+- 模块安装目录: 都在 `/data/adb/modules`
+- systemless: 都支持通过模块的形式以 systemless 修改 /system
+- `post-fs-data.sh`: 执行时机完全一致，语义也完全一致
+- `service.sh`: 执行时机完全一致，语义也完全一致
+- `system.prop`: 完全相同
+- `sepolicy.rule`: 完全相同
+- BusyBox：脚本都在 BusyBox 中以“独立模式”运行
+
+## 不同之处 {#differences}
+
+在了解不同之处之前，你需要知道如何区分你的模块是运行在 🐾星棱狐🐾 还是运行在 Magisk 之中；在所有你可以运行模块脚本的地方（`customize.sh`, `post-fs-data.sh`, `service.sh`)，你都可以通过环境变量`KSU` 来区分，在 🐾星棱狐🐾 中，这个环境变量将被设置为 `true`。
+
+以下是一些不同之处：
+
+1. 🐾星棱狐🐾 的模块不支持在 Recovery 中安装。
+2. 🐾星棱狐🐾 的模块没有内置的 Zygisk 支持（但你可以通过 [ZygiskNext](https://github.com/Dr-TSNG/ZygiskNext) 来使用 Zygisk 模块）。
+3. **模块挂载架构**：🐾星棱狐🐾 使用 [metamodule 系统](metamodule.md)，将挂载委托给可插拔的 metamodule（例如 `meta-overlayfs`），而 Magisk 将挂载内置在其核心中。🐾星棱狐🐾 需要安装 metamodule 才能启用模块挂载。
+4. 🐾星棱狐🐾 模块替换或者删除文件与 Magisk 完全不同。🐾星棱狐🐾 不支持 `.replace` 方式，相反，你需要通过 `mknod filename c 0 0` 创建同名文件夹来删除对应文件。
+5. BusyBox 的目录不同；🐾星棱狐🐾 内置的 BusyBox 在 `/data/adb/ksu/bin/busybox` 而 Magisk 在 `/data/adb/magisk/busybox`；**注意此为 🐾星棱狐🐾 内部行为，未来可能会更改！**
+6. 🐾星棱狐🐾 不支持 `.replace` 文件；但 🐾星棱狐🐾 支持 `REPLACE` 和 `REMOVE` 变量。
+7. 🐾星棱狐🐾 新增了一种脚本 `boot-completed.sh`，以便在 Android 系统启动后运行某些任务。
+8. 🐾星棱狐🐾 新增了一种脚本 `post-mount.sh`，以便在模块挂载完成后运行某些任务。
