@@ -243,13 +243,22 @@ jobs:
       - name: 核对 ksud 里确实内嵌了本次编的 LKM
         env:
           PKG: ${{ inputs.package_name }}
-          HASH: ${{ inputs.expected_hash }}
         run: |
           set -eu
-          # ksud 的 build.rs 在没传 KSU_PACKAGE_NAME 时会默认成同一个包名，
-          # 所以只 grep 包名测不出东西，必须确认 LKM 本体真的被打进去了。
-          # 证书哈希只存在于 LKM 里，用它来证明字节被内嵌。
+          # 重要：ksud 的 Cargo.toml 给 rust-embed 开了 "compression"，
+          # 模块内容是 DEFLATE 压缩后存进二进制的，所以在这里 grep 证书哈希
+          # 永远找不到 —— 那是压缩数据，不是明文。之前就是这么误报的。
+          #
+          # 能查的是「资源名」：rust-embed 必须把文件名原样存着（Asset::iter()
+          # 要靠它列出 KMI），所以文件名在 = ksud.yml 编译前确实把 ko 拷进了
+          # bin/<arch>/。模块内容本身的身份由 verify-lkm 直接 grep 原始 .ko 保证。
           find /tmp/lkm-arm64 -name '*.ko' -printf '  %f  %s bytes\n' | sort
+
+          expected=$(find /tmp/lkm-arm64 -name '*.ko' -printf '%f\n' | sort)
+          [ -n "$expected" ] || { echo "::error::没有可核对的 LKM"; exit 1; }
+          count=$(echo "$expected" | wc -l)
+          echo "期望内嵌 $count 个模块："
+          echo "$expected" | sed 's/^/    /'
 
           for abi in arm64-v8a x86_64 riscv64; do
             f="manager/app/src/main/jniLibs/$abi/libksud.so"
@@ -259,11 +268,12 @@ jobs:
               echo "  ok: 仅校验包名（上游没有 riscv64 的 LKM）"
               continue
             fi
-            grep -aq "_kernelsu.ko" "$f" \
-              || { echo "::error::$f 没有内嵌 *_kernelsu.ko"; exit 1; }
-            grep -aq "$HASH" "$f" \
-              || { echo "::error::$f 里没有证书哈希，LKM 本体没被打进去"; exit 1; }
-            echo "  ok: 已内嵌 LKM（含证书哈希）"
+            missing=0
+            for ko in $expected; do
+              grep -aq "$ko" "$f" || { echo "::error::$f 里没有内嵌 $ko"; missing=1; }
+            done
+            [ "$missing" = "0" ] || exit 1
+            echo "  ok: $count 个模块名全部命中"
           done
 
       - name: 写入签名配置
