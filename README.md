@@ -73,7 +73,7 @@ KSU_EXPECTED_HASH ?= ff7d77b3f5ee160dfcac5ff8a42d7a31eb825b2d88f83017b8323dd51c6
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `kmi` | `android14-6.1` | 要内嵌的 KMI。**填你自己设备那一个** |
+| `kmi` | `all` | 要内嵌的 KMI。默认全都要，一个 APK 适配所有 5.10 以上机型 |
 | `package_name` | `com.xinglinghu.manager` | |
 | `expected_hash` | `ff7d77b3…3b8d` | |
 | `expected_size` | `0x033b` | |
@@ -88,19 +88,35 @@ KSU_EXPECTED_HASH ?= ff7d77b3f5ee160dfcac5ff8a42d7a31eb825b2d88f83017b8323dd51c6
 
 装好后进「安装」选 boot 镜像，管理器会直接用内嵌的模块修补，**不需要**再选本地 LKM 文件。
 
-### 关于 `kmi` 为什么建议只填一个
+### 关于 `kmi`
 
-LKM 里烧的是**包名和签名哈希**，跟设备内核版本无关。
-内嵌多个 KMI 只会让 APK 变大，不会让它更"通用"。
-你设备是 `android14-6.1` 就只填 `android14-6.1`。
+默认 `all`，也就是把 8 个 GKI 模块全部内嵌进去：
 
-想查自己的 KMI：
+```
+android12-5.10  android13-5.10  android13-5.15  android14-5.15
+android14-6.1   android15-6.6   android16-6.12  android17-6.18
+```
+
+这样一个 APK 拿到任何 5.10 以上的设备上都能用，不用先查 KMI。
+每个模块约 100–300 KB，全部内嵌会让 APK 大几 MB —— 用体积换通用性。
+
+想省体积就自己挑，逗号分隔：
+
+```
+android14-6.1
+android14-6.1,android14-5.15
+```
+
+查自己设备是哪个：
 
 ```bash
 adb shell uname -r
 # 6.1.75-android14-11-g4b1a2c3d
 #       ^^^^^^^^^^^^ → android14-6.1
 ```
+
+> 5.4 / 4.19 / 4.14 这些非 GKI 内核**不在支持范围内**，它们没有通用 LKM，
+> 必须拿设备自己的内核源码在树内编译。
 
 ---
 
