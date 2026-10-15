@@ -283,6 +283,8 @@ jobs:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          WANT_HASH: ${{ inputs.expected_hash }}
+          WANT_SIZE: ${{ inputs.expected_size }}
         run: |
           set -eu
           if [ -z "${KS_B64:-}" ]; then
@@ -291,7 +293,33 @@ jobs:
             echo "::error::KEYSTORE（.jks 的 base64）、KEYSTORE_PASSWORD、KEY_ALIAS、KEY_PASSWORD"
             exit 1
           fi
-          echo "$KS_B64" | base64 -d > manager/xinglinghu-release.jks
+
+          # 别信 Secret 粘贴时的换行/空格，先清干净再解码。
+          printf '%s' "$KS_B64" | tr -d ' \t\r\n' | base64 -d > manager/xinglinghu-release.jks
+          [ -s manager/xinglinghu-release.jks ] \
+            || { echo "::error::KEYSTORE 解码后是空的，检查 base64 是否完整"; exit 1; }
+          echo "密钥库已写入：$(stat -c%s manager/xinglinghu-release.jks) 字节"
+
+          # 关键的前置校验：先把证书导出来比哈希，不匹配就立刻失败。
+          # 否则会白编十分钟，最后产出一个内核根本不认的 APK。
+          keytool -exportcert -alias "$KEY_ALIAS" \
+            -keystore manager/xinglinghu-release.jks \
+            -storepass "$KS_PASS" -file /tmp/cert.der >/dev/null
+
+          got_size=$(printf '0x%04x' "$(stat -c%s /tmp/cert.der)")
+          got_hash=$(sha256sum /tmp/cert.der | awk '{print $1}')
+          echo "证书长度: $got_size (期望 $WANT_SIZE)"
+          echo "证书哈希: $got_hash"
+          echo "期望哈希: $WANT_HASH"
+
+          [ "$got_hash" = "$WANT_HASH" ] || {
+            echo "::error::这个密钥库的证书哈希和内核对不上，装上去不会有 root。"
+            echo "::error::期望 $WANT_HASH"
+            echo "::error::实际 $got_hash"
+            exit 1
+          }
+          echo "::notice::证书哈希与内核一致，可以开始编译。"
+
           {
             echo "KEYSTORE_FILE=xinglinghu-release.jks"
             echo "KEYSTORE_PASSWORD=$KS_PASS"
@@ -355,6 +383,8 @@ jobs:
 
       - name: 打印签名信息
         if: ${{ inputs.sign }}
+        env:
+          WANT_HASH: ${{ inputs.expected_hash }}
         run: |
           set -eu
           find_tool() {
@@ -368,6 +398,23 @@ jobs:
           }
           APKSIGNER=$(find_tool apksigner) || { echo "::error::找不到 apksigner"; exit 1; }
           "$APKSIGNER" verify --print-certs "$APK"
+
+          # 最后一道闸：直接从已签名的 APK 里把证书抽出来比哈希。
+          # 这是整条链路上唯一能证明「装上去真有 root」的检查。
+          unzip -p "$APK" 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.DSA' > /tmp/sig.bin 2>/dev/null || true
+          keytool -printcert -jarfile "$APK" > /tmp/cert.txt 2>/dev/null || true
+
+          # cert.txt 里的 SHA256 是冒号分隔的，转成连续小写再比。
+          got=$(grep -i 'SHA256:' /tmp/cert.txt | head -n 1 \
+                | sed 's/.*SHA256:[[:space:]]*//' | tr -d ': \t\r\n' | tr 'A-Z' 'a-z')
+          echo "APK 证书 SHA-256: $got"
+          echo "内核里烧的哈希  : $WANT_HASH"
+
+          if [ "$got" != "$WANT_HASH" ]; then
+            echo "::error::APK 的签名证书哈希和内核里的对不上，装上去不会被授权 root。"
+            exit 1
+          fi
+          echo "::notice::签名哈希与内核一致，这个 APK 可用。"
 
       - name: 整理产物
         run: |
