@@ -55,15 +55,18 @@ KSU_EXPECTED_HASH ?= ff7d77b3f5ee160dfcac5ff8a42d7a31eb825b2d88f83017b8323dd51c6
 
 > ⚠️ **密钥口令曾经泄露过一次。** 早期提交里 `manager/gradle.properties`
 > 带着明文口令被推到了公开仓库（现已彻底清除并重建仓库）。
-> 建议改掉口令 —— 改口令**不会改变证书**，所以 `KSU_EXPECTED_HASH` 依然有效，
-> 不需要重新编译任何东西：
+> **请务必改掉口令** —— 改口令**不会改变证书**，所以 `KSU_EXPECTED_HASH` 依然有效，
+> 不需要重新编译任何东西。把下面的 `旧口令` 换成你手里的原口令：
 >
 > ```powershell
 > keytool -storepasswd -keystore C:\ksu-build\xinglinghu-release.jks `
->   -storepass XingLingHuRelease2026 -new 你的新口令
+>   -storepass 旧口令 -new 你的新口令
 > keytool -keypasswd -alias xinglinghu-key -keystore C:\ksu-build\xinglinghu-release.jks `
->   -storepass 你的新口令 -keypass XingLingHuRelease2026 -new 你的新口令
+>   -storepass 你的新口令 -keypass 旧口令 -new 你的新口令
 > ```
+>
+> 改完之后，本机 `manager/gradle.properties` 与 GitHub 的 `KEYSTORE_PASSWORD`、
+> `KEY_PASSWORD` 两个 Secret 都要同步成新口令。
 
 ---
 
