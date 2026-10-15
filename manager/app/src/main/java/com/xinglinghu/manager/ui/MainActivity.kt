@@ -3,6 +3,7 @@ package com.xinglinghu.manager.ui
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -91,6 +92,7 @@ import com.xinglinghu.manager.ui.screen.sulog.SulogScreen
 import com.xinglinghu.manager.ui.screen.superuser.SuperUserPager
 import com.xinglinghu.manager.ui.screen.template.AppProfileTemplateScreen
 import com.xinglinghu.manager.ui.screen.templateeditor.TemplateEditorScreen
+import com.xinglinghu.manager.ui.stealth.Stealth
 import com.xinglinghu.manager.ui.stealth.StealthController
 import com.xinglinghu.manager.ui.theme.KernelSUTheme
 import com.xinglinghu.manager.ui.theme.LocalColorMode
@@ -134,16 +136,41 @@ class MainActivity : ComponentActivity() {
         // 不再强制停留固定时长。
         splashScreen.setKeepOnScreenCondition { !contentReady }
 
-        val isManager = Natives.isManager
-        if (isManager && Natives.kernelUAPIVersion == Natives.managerUAPIVersion) {
-            install()
-            if (StealthController.isHidden(this)) {
-                lifecycleScope.launch {
-                    val ready = withContext(Dispatchers.IO) {
-                        runCatching { execKsud("stealth start") }.getOrDefault(false)
-                    }
-                    if (!ready) StealthController.setHidden(this@MainActivity, false)
+        // Installing the daemon must not be gated on `isManager` alone.
+        //
+        // Kernel stealth works by making GET_INFO stop reporting the manager flag,
+        // so once the user turns it on, `isManager` reads false on every later
+        // launch. Gating on it means a disguised device silently stops installing
+        // /data/adb/ksud — which is exactly the file the web manager requires, so
+        // it fails with "install or update ksud from the Manager", and root itself
+        // becomes unreliable. Reading stealthState() == 1 already proves our kernel
+        // is running and recognises us, since that ioctl is ours.
+        //
+        // install() starts a root shell, so with no root it throws; onCreate is the
+        // main thread and has no caller to catch it, so it must not escape.
+        val isManager = runCatching { Natives.isManager }.getOrDefault(false)
+        val stealthOn = Stealth.isEnabled()
+        if (isManager || stealthOn) {
+            // ksud's ensure_uapi_version_matched() requires an exact match, so a
+            // looser comparison here would only produce an install that ksud is
+            // guaranteed to reject.
+            val uapiOk = runCatching {
+                Natives.kernelUAPIVersion == Natives.managerUAPIVersion
+            }.getOrDefault(false)
+            if (uapiOk) {
+                runCatching { install() }
+                    .onFailure { Log.w("KernelSU", "ksud install failed; will retry next launch", it) }
+            }
+        }
+
+        // Re-arm the MIUI recovery guard whenever the icon is meant to be hidden.
+        // This is independent of the kernel stealth flag above.
+        if (StealthController.isHidden(this)) {
+            lifecycleScope.launch {
+                val ready = withContext(Dispatchers.IO) {
+                    runCatching { execKsud("stealth start") }.getOrDefault(false)
                 }
+                if (!ready) StealthController.setHidden(this@MainActivity, false)
             }
         }
 

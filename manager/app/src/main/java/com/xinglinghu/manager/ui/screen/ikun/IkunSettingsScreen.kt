@@ -31,6 +31,7 @@ import com.xinglinghu.manager.ui.stealth.Stealth
 import com.xinglinghu.manager.ui.stealth.StealthController
 import com.xinglinghu.manager.ui.util.execKsud
 import com.xinglinghu.manager.ui.util.getRootShell
+import com.xinglinghu.manager.ui.util.install
 
 internal data class IkunSettingsUiState(
     val falling: Boolean,
@@ -126,14 +127,32 @@ fun IkunSettingsScreen() {
         scope.launch {
             try {
                 val url = withContext(Dispatchers.IO) {
-                    check(execKsud(args)) { failed }
+                    // The web service runs the *installed* /data/adb/ksud, not the
+                    // copy inside the APK, so it is absent until the Manager has
+                    // installed the daemon once. Installing here makes the button
+                    // work on a device whose daemon is missing or stale.
+                    if (args.startsWith("webui start")) {
+                        runCatching { install() }
+                    }
+                    val daemon = context.applicationInfo.nativeLibraryDir + "/libksud.so"
+                    // Surface ksud's own stderr: "install ksud first", "port in use"
+                    // and similar are the useful answers, and the old code replaced
+                    // every one of them with a generic failure message.
+                    val start = getRootShell().newJob()
+                        .add("$daemon $args")
+                        .to(ArrayList<String>(), ArrayList<String>())
+                        .exec()
+                    check(start.isSuccess) {
+                        start.err.firstOrNull { it.isNotBlank() }?.trim() ?: failed
+                    }
                     if (open) {
-                        val daemon = context.applicationInfo.nativeLibraryDir + "/libksud.so"
                         val result = getRootShell().newJob()
                             .add("$daemon webui url")
-                            .to(ArrayList<String>(), null)
+                            .to(ArrayList<String>(), ArrayList<String>())
                             .exec()
-                        check(result.isSuccess) { failed }
+                        check(result.isSuccess) {
+                            result.err.firstOrNull { it.isNotBlank() }?.trim() ?: failed
+                        }
                         result.out.firstOrNull { it.startsWith("http://127.0.0.1:9178/#") }
                             ?: error(failed)
                     } else null

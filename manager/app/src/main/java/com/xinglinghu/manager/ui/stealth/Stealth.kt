@@ -15,22 +15,16 @@ import com.xinglinghu.manager.Natives
  *  - **Hidden launcher icon** ([StealthController]) is a pure PackageManager
  *    trick with no kernel involvement.
  *
- * The three-state model matters: reading the kernel flag can fail because the
- * kernel predates the feature, because this build is not the recognised manager,
- * or because the ioctl was rejected. Collapsing "could not read" into "off"
- * would show root-only UI on a device the user believes is disguised, so
- * anything unreadable is treated as "possibly on".
+ * The three-state model matters. [state] is read from the kernel, and a failed
+ * read must not be reported to the user as "off": it can mean the kernel lacks
+ * the ioctl, that this build is not the recognised manager, or that the call was
+ * rejected. Only an explicit 1 is treated as on, and only an explicit 0 as off.
+ *
+ * The duplicate of this file's knowledge that used to live here — comparing
+ * KERNEL_SU_UAPI_VERSION against a "version that introduced stealth" — was wrong
+ * and has been removed; see [kernelHasStealthFeature] for why.
  */
 object Stealth {
-
-    /**
-     * UAPI version that introduced the stealth ioctls.
-     *
-     * The command numbers are appended after the existing table, so an older
-     * kernel simply answers -ENOTTY. The version is used only to explain *why* a
-     * read or write failed, never to gate behaviour.
-     */
-    private const val UAPI_WITH_STEALTH = 5
 
     /** Mirrors `KSU_STEALTH_PATH` in `kernel/manager/stealth.c`. */
     const val STEALTH_FLAG_PATH = "/data/adb/ksu/stealth"
@@ -55,30 +49,23 @@ object Stealth {
         else -> State.UNKNOWN
     }
 
-    /**
-     * Whether root-only surface should be hidden.
-     *
-     * True unless the kernel explicitly said stealth is off, so an unreadable
-     * state hides rather than reveals.
-     */
-    fun looksStealthy(): Boolean = state() != State.OFF
-
     /** True only when the kernel explicitly confirmed stealth is on. */
     fun isEnabled(): Boolean = kernelState() == 1
 
     fun setEnabled(enabled: Boolean): Boolean =
         runCatching { Natives.stealthSet(enabled) }.getOrDefault(false)
 
-    /*
-     * Failure explanation.
+    /**
+     * Whether the kernel answered our stealth ioctl at all.
      *
-     * When the write fails, the useful question is whether the kernel even has
-     * the feature. If it does, the failure is an identity problem (this build is
-     * not the recognised manager yet); if it does not, the running root is some
-     * other implementation or the kernel is too old for this fork.
+     * This deliberately probes the ioctl instead of comparing
+     * [Natives.kernelUAPIVersion] against [UAPI_WITH_STEALTH]. The kernel keeps
+     * KERNEL_SU_UAPI_VERSION at 5 on purpose (raising it would make "new APK +
+     * older kernel" fail ksud's version check and break module mounting), so a
+     * version of 5 says nothing about whether these commands exist. A kernel
+     * that lacks them answers -ENOTTY, which reads back as -1.
      */
-    fun kernelHasStealthFeature(): Boolean =
-        runCatching { Natives.kernelUAPIVersion >= UAPI_WITH_STEALTH }.getOrDefault(false)
+    fun kernelHasStealthFeature(): Boolean = kernelState() >= 0
 
     fun kernelLooksOurs(): Boolean = runCatching { Natives.isManager }.getOrDefault(false)
 
@@ -91,10 +78,16 @@ object Stealth {
         if (setEnabled(enabled)) return null
         val action = if (enabled) "开启" else "关闭"
         return when {
+            // A readable state proves the ioctls exist, so the write failed for
+            // some other reason; say so rather than blaming the kernel version.
             kernelHasStealthFeature() ->
-                "${action}隐身失败：本应用当前未被内核认作管理器。请重启设备，或卸载其它管理器后重试"
-            kernelLooksOurs() -> "内核版本过旧，不支持隐身模式"
-            else -> "当前内核不是本项目的：请重启设备，或卸载其它 root 管理器后重试"
+                "${action}隐身失败：内核拒绝了本次写入，请重启设备后重试"
+            // The ioctl is missing. If the kernel still calls us its manager then
+            // it is simply an older build of this fork; otherwise it is not ours.
+            kernelLooksOurs() ->
+                "当前内核不支持隐身模式：请刷入本次构建的内核（已装 LKM 的需重新修补）"
+            else ->
+                "当前内核不是本项目的：请重启设备，或卸载其它 root 管理器后重试"
         }
     }
 }

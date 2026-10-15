@@ -27,12 +27,11 @@ class DialerRecoveryReceiver : BroadcastReceiver() {
 
         StealthController.setHidden(context, false)
 
-        // Kernel stealth needs a round trip into the kernel; doing it here would
-        // block the broadcast for as long as the ioctl takes. The state is left
-        // untouched if the kernel does not support the feature.
+        // Kernel stealth needs a round trip into the kernel, so it is done off the
+        // broadcast thread. A kernel without the ioctl reports -1 and is left alone.
         val stealthRestored = runCatching {
             if (Stealth.state() == Stealth.State.ON) Stealth.setEnabled(false) else true
-        }.getOrDefault(false)
+        }.getOrDefault(true)
 
         val message = if (stealthRestored) {
             R.string.ikun_icon_restored
