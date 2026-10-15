@@ -28,7 +28,7 @@
 #include "klog.h" // IWYU pragma: keep
 
 /*
- * 与管理器侧 StealthController.STEALTH_FLAG_PATH 逐字符一致。
+ * 与管理器侧 Stealth.STEALTH_FLAG_PATH 逐字符一致。
  * 沿用本仓库既有的 /data/adb/ksu 目录，保持与内核/用户空间其他状态文件同一处，
  * 这样卸载管理器时用户只要清掉一个目录即可。
  */
