@@ -186,4 +186,22 @@ static const __u32 KSU_IOCTL_SET_INIT_PGRP = _IO('K', 19);
 static const __u32 KSU_IOCTL_GET_SULOG_FD = _IOW('K', 20, struct ksu_get_sulog_fd_cmd);
 static const __u32 KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT = _IO('K', 21);
 
+/*
+ * 隐身模式 (stealth)
+ *
+ *   开启后 GET_INFO 不再上报 KSU_GET_INFO_FLAG_MANAGER，管理器整个界面伪装成
+ *   "未安装"。内核真实权限不变，因此只有签名匹配的真管理器能读写该开关 ——
+ *   这也保证了"关掉隐身"这条路永远存在。
+ *
+ *   ⚠️ 故意不抬 KERNEL_SU_UAPI_VERSION：新增 ioctl 天生向后兼容
+ *   （老内核对未知 cmd 返回 -ENOTTY），一旦抬版本号，"新 APK + 老内核"
+ *   会被 ksud 判成 "UAPI too old"，模块挂载与开机流程全废。
+ */
+struct ksu_stealth_cmd {
+    __u8 enabled; /* Input for SET, Output for GET */
+};
+
+static const __u32 KSU_IOCTL_STEALTH_GET = _IOR('K', 22, struct ksu_stealth_cmd);
+static const __u32 KSU_IOCTL_STEALTH_SET = _IOW('K', 23, struct ksu_stealth_cmd);
+
 #endif

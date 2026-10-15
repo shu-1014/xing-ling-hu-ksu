@@ -14,6 +14,7 @@
 #include "runtime/ksud_boot.h"
 #include "feature/kernel_umount.h"
 #include "manager/manager_identity.h"
+#include "manager/stealth.h"
 #include "selinux/selinux.h"
 #include "infra/file_wrapper.h"
 #include "hook/tp_marker.h"
@@ -48,7 +49,7 @@ static int do_get_info(void __user *arg)
     }
 #endif
 
-    if (is_manager()) {
+    if (is_manager() && !ksu_stealth_is_enabled()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
     }
     if (ksu_late_loaded) {
@@ -79,7 +80,7 @@ static int do_get_info_legacy(void __user *arg)
     }
 #endif
 
-    if (is_manager()) {
+    if (is_manager() && !ksu_stealth_is_enabled()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
     }
     if (ksu_late_loaded) {
@@ -115,6 +116,7 @@ static int do_report_event(void __user *arg)
         services_started = false;
         if (!post_fs_data_lock) {
             post_fs_data_lock = true;
+            ksu_stealth_load();
             if (ksu_late_loaded) {
                 pr_info("post-fs-data skipped (late load)\n");
             } else {
@@ -715,6 +717,39 @@ static int do_disable_escape_to_root(void __user *arg)
 
 // IOCTL handlers mapping table
 // clang-format off
+/*
+ * 隐身模式 (stealth)
+ *
+ *   两条命令都要求 only_manager：内核真实权限判定不受隐身影响
+ *   （is_manager() 依然为真），所以隐身开着时管理器照样能读到并关掉它 ——
+ *   这是"不会把用户锁在外面"的关键。
+ */
+static int do_stealth_get(void __user *arg)
+{
+    struct ksu_stealth_cmd cmd = { 0 };
+
+    cmd.enabled = ksu_stealth_is_enabled() ? 1 : 0;
+
+    if (copy_to_user(arg, &cmd, sizeof(cmd))) {
+        pr_err("stealth: copy_to_user failed\n");
+        return -EFAULT;
+    }
+
+    return 0;
+}
+
+static int do_stealth_set(void __user *arg)
+{
+    struct ksu_stealth_cmd cmd;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd))) {
+        pr_err("stealth: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    return ksu_stealth_set(cmd.enabled != 0);
+}
+
 static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
     { 
         .cmd = KSU_IOCTL_GRANT_ROOT,
@@ -799,8 +834,7 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .name = "GET_APP_PROFILE",
         .handler = do_get_app_profile,
         .perm_check = only_manager
-    },
-    {
+    },    {
         .cmd = KSU_IOCTL_SET_APP_PROFILE,
         .name = "SET_APP_PROFILE",
         .handler = do_set_app_profile,
@@ -861,6 +895,18 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .handler = do_disable_escape_to_root, 
         .perm_check = only_root,
         .allow_su_session = true
+    },
+    {
+        .cmd = KSU_IOCTL_STEALTH_GET,
+        .name = "STEALTH_GET",
+        .handler = do_stealth_get,
+        .perm_check = only_manager
+    },
+    {
+        .cmd = KSU_IOCTL_STEALTH_SET,
+        .name = "STEALTH_SET",
+        .handler = do_stealth_set,
+        .perm_check = only_manager
     },
     {
         .cmd = 0,

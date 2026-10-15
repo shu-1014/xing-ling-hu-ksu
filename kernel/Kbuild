@@ -27,6 +27,12 @@ kernelsu-objs += infra/seccomp_cache.o
 kernelsu-objs += infra/su_mount_ns.o
 kernelsu-objs += infra/symbol_resolver.o
 
+# Stealth is compiled unconditionally: supercall/dispatch.c consults
+# ksu_stealth_is_enabled() on every GET_INFO regardless of whether the manager
+# feature is enabled, so gating this object on CONFIG_KSU_DISABLE_MANAGER would
+# break the link for that configuration.
+kernelsu-objs += manager/stealth.o
+
 ifneq ($(CONFIG_KSU_DISABLE_MANAGER),y)
 kernelsu-objs += manager/apk_sign.o
 kernelsu-objs += manager/pkg_observer.o
