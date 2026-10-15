@@ -27,6 +27,11 @@ on:
         required: false
         default: ''
         type: string
+      ksu_version:
+        description: 'pin KSU_VERSION so it matches the manager versionCode (optional)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   build-kernelsu-ko:
@@ -64,6 +69,9 @@ jobs:
         fi
         if [ "${{ github.event_name }}" = "pull_request" ]; then
           EXTRA_ARGS="$EXTRA_ARGS KSU_IS_PR_BUILD=1"
+        fi
+        if [ -n "${{ inputs.ksu_version }}" ]; then
+          EXTRA_ARGS="$EXTRA_ARGS KSU_VERSION_OVERRIDE=${{ inputs.ksu_version }}"
         fi
         CONFIG_KSU=m CC=clang make $EXTRA_ARGS
         
@@ -141,6 +149,9 @@ jobs:
         fi
         if [ "${{ github.event_name }}" = "pull_request" ]; then
           EXTRA_ARGS="$EXTRA_ARGS KSU_IS_PR_BUILD=1"
+        fi
+        if [ -n "${{ inputs.ksu_version }}" ]; then
+          EXTRA_ARGS="$EXTRA_ARGS KSU_VERSION_OVERRIDE=${{ inputs.ksu_version }}"
         fi
         
         MDIR=$(realpath .)

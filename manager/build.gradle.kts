@@ -16,20 +16,31 @@ extra["managerVersionCode"] = getVersionCode()
 extra["managerVersionName"] = getVersionName()
 
 fun getGitCommitCount(): Int {
-    val process = Runtime.getRuntime().exec(arrayOf("git", "rev-list", "--count", "HEAD"))
-    return process.inputStream.bufferedReader().use { it.readText().trim().toInt() }
+    return runCatching {
+        val process = Runtime.getRuntime().exec(arrayOf("git", "rev-list", "--count", "HEAD"))
+        process.inputStream.bufferedReader().use { it.readText().trim().toInt() }
+    }.getOrElse { 0 }
 }
 
 fun getGitDescribe(): String {
-    val process = Runtime.getRuntime().exec(arrayOf("git", "describe", "--tags", "--always"))
-    return process.inputStream.bufferedReader().use { it.readText().trim() }
+    return runCatching {
+        val process = Runtime.getRuntime().exec(arrayOf("git", "describe", "--tags", "--always"))
+        process.inputStream.bufferedReader().use { it.readText().trim() }
+    }.getOrElse { "unknown" }
 }
 
+// The version can be pinned instead of derived from git:
+//   ./gradlew assembleRelease -PKSU_VERSION_CODE=30008 -PKSU_VERSION_NAME=v3.4.1-xinglinghu
+// CI clones this repo fresh, so its commit count differs from the one the LKM was
+// built against and the manager would otherwise disagree with the kernel.
 fun getVersionCode(): Int {
-    val commitCount = getGitCommitCount()
-    return 30000 + commitCount
+    val override = project.findProperty("KSU_VERSION_CODE")?.toString()
+    if (!override.isNullOrBlank()) return override.toInt()
+    return 30000 + getGitCommitCount()
 }
 
 fun getVersionName(): String {
+    val override = project.findProperty("KSU_VERSION_NAME")?.toString()
+    if (!override.isNullOrBlank()) return override
     return getGitDescribe()
 }
