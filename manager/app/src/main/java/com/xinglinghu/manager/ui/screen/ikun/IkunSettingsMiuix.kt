@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -59,6 +61,15 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberBlurBackdrop(LocalEnableBlur.current)
     val barColor = if (backdrop != null) Color.Transparent else colorScheme.surface
+    val listState = rememberLazyListState()
+    // The result text lives at the end of the list, so an action taken near the
+    // bottom would otherwise report its outcome off-screen and look like nothing
+    // happened at all. Bring the message into view whenever it changes.
+    LaunchedEffect(state.message) {
+        if (state.message.isNotEmpty() && listState.layoutInfo.totalItemsCount > 0) {
+            listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+        }
+    }
     Scaffold(
         topBar = {
             BlurredBar(backdrop) {
@@ -88,6 +99,7 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
     ) { innerPadding ->
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxHeight()
                     .scrollEndHaptic()

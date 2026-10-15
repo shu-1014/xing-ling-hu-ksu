@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -27,6 +28,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -45,6 +47,14 @@ import kotlin.math.roundToInt
 @Composable
 internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSettingsActions) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val listState = rememberLazyListState()
+    // The result text is the last item, so an action taken near the bottom would
+    // report off-screen and look like nothing happened. Scroll it into view.
+    LaunchedEffect(state.message) {
+        if (state.message.isNotEmpty() && listState.layoutInfo.totalItemsCount > 0) {
+            listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+        }
+    }
     ExpressiveScaffold(
         topBar = {
             LargeFlexibleTopAppBar(
@@ -58,6 +68,7 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 13.dp),
