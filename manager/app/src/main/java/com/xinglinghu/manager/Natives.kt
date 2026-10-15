@@ -126,6 +126,16 @@ object Natives {
     val managerUAPIVersion: Int
         external get
 
+    /**
+     * Kernel stealth flag: 1 = on, 0 = off, -1 = could not be read.
+     *
+     * The negative result is meaningful and must not be collapsed into 0; see
+     * `com.xinglinghu.manager.ui.stealth.Stealth`.
+     */
+    external fun stealthState(): Int
+
+    external fun stealthSet(enabled: Boolean): Boolean
+
     fun isFullFeatured(): Boolean {
         return isManager && kernelUAPIVersion == managerUAPIVersion && rootAvailable()
     }

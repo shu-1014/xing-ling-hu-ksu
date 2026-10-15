@@ -366,6 +366,18 @@ Java_com_xinglinghu_manager_Natives_setSelinuxHideEnabled(JNIEnv *env, jobject t
 }
 
 extern "C"
+JNIEXPORT jint JNICALL
+Java_com_xinglinghu_manager_Natives_stealthState(JNIEnv *env, jobject thiz) {
+    return get_stealth_state();
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_xinglinghu_manager_Natives_stealthSet(JNIEnv *env, jobject thiz, jboolean enabled) {
+    return set_stealth_state(enabled);
+}
+
+extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xinglinghu_manager_Natives_getUserName(JNIEnv *env, jobject thiz, jint uid) {
     struct passwd *pw = getpwuid((uid_t) uid);

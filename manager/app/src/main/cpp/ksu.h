@@ -53,6 +53,11 @@ int set_selinux_hide_enabled(bool enabled);
 
 bool is_selinux_hide_enabled();
 
+// Stealth mode: 1 = on, 0 = off, -1 = could not be read (treat as unknown)
+int get_stealth_state();
+
+bool set_stealth_state(bool enabled);
+
 bool get_allow_list(struct ksu_new_get_allow_list_cmd *);
 
 inline std::pair<int, int> legacy_get_info() {

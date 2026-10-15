@@ -240,3 +240,26 @@ bool is_selinux_hide_enabled() {
     }
     return value != 0;
 }
+
+/*
+ * Stealth mode.
+ *
+ * Returns 1 when the kernel reports stealth on, 0 when it reports it off, and -1
+ * when the value could not be read at all (kernel too old, command rejected, or
+ * this app is not recognised as the manager). The caller must treat -1 as
+ * "unknown" rather than "off": assuming off would expose root-only UI while the
+ * device is actually disguised.
+ */
+int get_stealth_state() {
+    struct ksu_stealth_cmd cmd = {};
+    if (ksuctl(KSU_IOCTL_STEALTH_GET, &cmd) != 0) {
+        return -1;
+    }
+    return cmd.enabled ? 1 : 0;
+}
+
+bool set_stealth_state(bool enabled) {
+    struct ksu_stealth_cmd cmd = {};
+    cmd.enabled = enabled ? 1 : 0;
+    return ksuctl(KSU_IOCTL_STEALTH_SET, &cmd) == 0;
+}

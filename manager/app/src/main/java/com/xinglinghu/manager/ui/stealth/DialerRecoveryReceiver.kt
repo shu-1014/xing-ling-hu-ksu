@@ -7,11 +7,40 @@ import android.widget.Toast
 import com.xinglinghu.manager.R
 import com.xinglinghu.manager.ui.MainActivity
 
+/**
+ * Dialer escape hatch, shared by both disguises.
+ *
+ * Entering [DialerRecoveryCode.VALUE] in the system dialer clears the hidden
+ * launcher icon *and* turns off kernel stealth, then opens the Manager.
+ *
+ * A single code deliberately covers both: either mechanism left on its own can
+ * make the app hard to get back into, and a user who has just restored the icon
+ * should never be left staring at a UI that still claims nothing is installed.
+ *
+ * SECRET_CODE is not a protected broadcast, so any app could forge it. That is
+ * acceptable here because this receiver only ever *restores* visibility — the
+ * worst a forged broadcast achieves is un-hiding an app the user installed.
+ */
 class DialerRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!DialerRecoveryCode.matches(intent.action, intent.data?.toString())) return
+
         StealthController.setHidden(context, false)
-        Toast.makeText(context, R.string.ikun_icon_restored, Toast.LENGTH_SHORT).show()
+
+        // Kernel stealth needs a round trip into the kernel; doing it here would
+        // block the broadcast for as long as the ioctl takes. The state is left
+        // untouched if the kernel does not support the feature.
+        val stealthRestored = runCatching {
+            if (Stealth.state() == Stealth.State.ON) Stealth.setEnabled(false) else true
+        }.getOrDefault(false)
+
+        val message = if (stealthRestored) {
+            R.string.ikun_icon_restored
+        } else {
+            R.string.ikun_recovery_unavailable
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
         // Some ROMs block background activity launches; the restored icon remains usable.
         runCatching {
             context.startActivity(Intent(context, MainActivity::class.java).apply {
