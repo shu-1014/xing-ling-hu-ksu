@@ -78,6 +78,7 @@ import com.xinglinghu.manager.ui.navigation3.Route
 import com.xinglinghu.manager.ui.navigation3.rememberNavigator
 import com.xinglinghu.manager.ui.screen.about.AboutScreen
 import com.xinglinghu.manager.ui.screen.appprofile.AppProfileScreen
+import com.xinglinghu.manager.ui.screen.assistant.AssistantScreen
 import com.xinglinghu.manager.ui.screen.colorpalette.ColorPaletteScreen
 import com.xinglinghu.manager.ui.screen.executemoduleaction.ExecuteModuleActionScreen
 import com.xinglinghu.manager.ui.screen.flash.FlashScreen
@@ -300,6 +301,7 @@ class MainActivity : ComponentActivity() {
                             entry<Route.Module>(swipeDismiss = swipeDismiss) { mainScreenEntry() }
                             entry<Route.Settings>(swipeDismiss = swipeDismiss) { mainScreenEntry() }
                             entry<Route.IkunSettings>(swipeDismiss = swipeDismiss) { IkunSettingsScreen() }
+                            entry<Route.Assistant>(swipeDismiss = swipeDismiss) { AssistantScreen() }
                         }
                     }
 

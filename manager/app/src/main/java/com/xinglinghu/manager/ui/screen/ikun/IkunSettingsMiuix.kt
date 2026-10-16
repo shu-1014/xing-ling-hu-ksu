@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +35,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.xinglinghu.manager.R
@@ -51,6 +53,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -322,6 +325,32 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
                                 )
                             }
                         }
+                    }
+                }
+                item {
+                    Card(Modifier.padding(top = 12.dp).fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(stringResource(R.string.ikun_recovery_code_summary), color = colorScheme.onSurfaceVariantSummary)
+                            TextField(
+                                value = state.recoveryCodeDigits,
+                                onValueChange = actions.onSetRecoveryCode,
+                                label = stringResource(R.string.ikun_recovery_code_label),
+                                enabled = !state.busy,
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextButton(
+                                text = stringResource(R.string.ikun_recovery_code_reset),
+                                onClick = actions.onResetRecoveryCode,
+                                enabled = !state.busy,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+                item {
+                    Card(Modifier.padding(top = 12.dp).fillMaxWidth()) {
                         SwitchPreference(
                             title = stringResource(R.string.ikun_stealth),
                             summary = stringResource(R.string.ikun_stealth_summary),
@@ -352,6 +381,12 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
                             TextButton(
                                 text = stringResource(R.string.ikun_web_stop),
                                 onClick = actions.onStopWebManager,
+                                enabled = !state.busy,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextButton(
+                                text = stringResource(R.string.ikun_web_rotate),
+                                onClick = actions.onRotateWebManagerLink,
                                 enabled = !state.busy,
                                 modifier = Modifier.fillMaxWidth(),
                             )

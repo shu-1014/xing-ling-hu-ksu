@@ -67,7 +67,8 @@ data class SettingsUiState(
 data class SettingsScreenActions(
     val onSetCheckModuleUpdate: (Boolean) -> Unit,
     val onOpenTheme: () -> Unit,
-    val onOpenIkunSettings: () -> Unit,
+        val onOpenIkunSettings: () -> Unit,
+    val onOpenAssistant: () -> Unit,
     val onSetUiModeIndex: (Int) -> Unit,
     val onOpenProfileTemplate: () -> Unit,
     val onSetSuCompatMode: (Int) -> Unit,

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Article
+import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Rule
 import androidx.compose.material.icons.rounded.Adb
 import androidx.compose.material.icons.rounded.AdminPanelSettings
@@ -163,6 +164,19 @@ fun SettingPagerMiuix(
                                 )
                             },
                             onClick = actions.onOpenIkunSettings,
+                        )
+                        ArrowPreference(
+                            title = stringResource(R.string.assistant_title),
+                            summary = stringResource(R.string.assistant_summary),
+                            startAction = {
+                                Icon(
+                                    Icons.AutoMirrored.Rounded.Chat,
+                                    modifier = Modifier.padding(end = 6.dp),
+                                    contentDescription = stringResource(R.string.assistant_title),
+                                    tint = colorScheme.onBackground
+                                )
+                            },
+                            onClick = actions.onOpenAssistant,
                         )
                         ArrowPreference(
                             title = stringResource(id = R.string.settings_theme),

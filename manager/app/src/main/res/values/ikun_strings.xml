@@ -40,6 +40,7 @@
     <string name="ikun_web_summary">Local web manager at 127.0.0.1:9178. Root is required. Open it here to authenticate.</string>
     <string name="ikun_web_open">Start and open web manager</string>
     <string name="ikun_web_stop">Stop web manager</string>
+    <string name="ikun_web_rotate">Revoke link and open a new one</string>
     <string name="ikun_web_autostart">Start web manager at boot</string>
     <string name="ikun_operation_failed">Operation failed. Check root access and the matching ksud build.</string>
     <string name="ikun_install_failed">Could not install ksud. Check root access, then try again.</string>
@@ -49,8 +50,34 @@
     <string name="ikun_code_copied">Recovery code copied</string>
     <string name="ikun_open_dialer">Open dialer</string>
     <string name="ikun_dialer_unavailable">No phone dialer is available on this device.</string>
+    <string name="ikun_recovery_code_summary">Change the code entered in the dialer to restore the launcher icon. Digits only; the * # wrappers are added automatically.</string>
+    <string name="ikun_recovery_code_label">Recovery code</string>
+    <string name="ikun_recovery_code_reset">Restore default code</string>
     <string name="ikun_recovery_unavailable">Dialer recovery could not start. The launcher icon remains visible. Check Root access and update ksud.</string>
     <string name="ikun_icon_restored">🐾星棱狐🐾 launcher icon restored</string>
+
+    <!-- Offline assistant. Every string here ships inside the APK; the assistant
+         never contacts a network, so the copy is the whole knowledge base. -->
+    <string name="assistant_title">🐾星棱狐🐾 Assistant</string>
+    <string name="assistant_subtitle_offline">Runs fully offline</string>
+    <string name="assistant_summary">Ask about kernel, modules or stealth. Runs offline.</string>
+    <string name="assistant_greeting">Hi, I am the 🐾星棱狐🐾 assistant. Ask me about the kernel, modules, superuser or stealth — or just ask for a joke.</string>
+    <string name="assistant_greeting_title">The interface stays cute, the kernel does the work</string>
+    <string name="assistant_greeting_body">Everything below is answered from this device. No network, no account, no upload.</string>
+    <string name="assistant_joke_title">Daily joke · local</string>
+    <string name="assistant_joke_again">Another one</string>
+    <string name="assistant_disclaimer">A community fork based on KernelSU, unaffiliated with any other assistant product or with KernelSU itself. This one does not call an AI over the network.</string>
+    <string name="assistant_input_hint">Type a question…</string>
+    <string name="assistant_send">Send</string>
+    <string name="assistant_unknown">I did not understand that. Try: status, modules, superuser, stealth, version, device, or ask for a joke.</string>
+    <string name="assistant_help_body">Things I can answer offline:\n· status — kernel, root, module and stealth overview\n· modules — installed modules\n· superuser — how many apps are granted\n· stealth — kernel stealth and launcher icon state\n· version — manager and kernel UAPI versions\n· device — model, Android version and ABI\n· stealth on / stealth off — ask to toggle it\n· web manager — ask to start the local panel\n· joke — another line</string>
+    <string name="assistant_confirm_action">Ready to run: %1$s. Tap below to confirm.</string>
+    <string name="assistant_run_action">Run: %1$s</string>
+    <string name="assistant_action_done">Done: %1$s</string>
+    <string name="assistant_action_failed">Could not run %1$s. Check Root access and the matching ksud build.</string>
+    <string name="assistant_action_stealth_on_label">Start the dialer recovery guard</string>
+    <string name="assistant_action_stealth_off_label">Stop the dialer recovery guard</string>
+    <string name="assistant_action_webui_label">Start the local web manager</string>
 
     <!-- Launch announcement. Editing either string re-arms the sheet once, because
          dismissal is tracked by a fingerprint of the title and body together. -->

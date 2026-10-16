@@ -357,8 +357,43 @@ fn is_hidden() -> Result<bool> {
     Ok(false)
 }
 
+/// Directory holding the recovery guard's own state.
+///
+/// Deliberately *not* `/data/adb/ksu/stealth`: that path is the kernel's
+/// stealth flag, written by `kernel/manager/stealth.c` as a regular 0644 file.
+/// Keeping the guard state in its own directory means the two never collide,
+/// which used to fail `stealth stop` with "Recovery state directory is not
+/// protected" whenever the flag file had already been created.
 fn private_dir() -> PathBuf {
-    Path::new(defs::WORKING_DIR).join("stealth")
+    Path::new(defs::WORKING_DIR).join("stealth_guard")
+}
+
+/// Free the kernel's flag path by moving a pre-fix state directory aside.
+///
+/// The kernel writes `KSU_STEALTH_PATH` as a regular file. An older ksud used
+/// the very same name as a directory, so whichever side ran first won it and the
+/// other failed — ksud with "Recovery state directory is not protected", the
+/// kernel with a plain write error. Renaming the directory to [private_dir]
+/// gives the kernel its file back and keeps any live guard state readable.
+fn migrate_legacy_dir() -> Result<()> {
+    let legacy = Path::new(defs::WORKING_DIR).join("stealth");
+    let Ok(metadata) = fs::symlink_metadata(&legacy) else {
+        return Ok(());
+    };
+    // Anything that is not a real directory is the kernel's flag file (or a
+    // symlink); leave both exactly as they are.
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+    let current = private_dir();
+    if current.exists() {
+        // Both names are in use. `remove_dir` only succeeds when the legacy
+        // directory is empty, so a live guard state is never destroyed.
+        let _ = fs::remove_dir(&legacy);
+        return Ok(());
+    }
+    fs::rename(&legacy, &current).context("Cannot move the legacy recovery state directory")?;
+    Ok(())
 }
 
 fn lock() -> Result<File> {
@@ -372,6 +407,7 @@ fn lock() -> Result<File> {
         .mode(0o700)
         .create(parent)?;
     validate_directory(parent, false)?;
+    migrate_legacy_dir()?;
     let directory = private_dir();
     match DirBuilder::new().mode(0o700).create(&directory) {
         Ok(()) => {}
@@ -431,15 +467,40 @@ fn validate_file(file: &File) -> Result<()> {
     Ok(())
 }
 
+/// Locations the guard state may live in, newest first.
+///
+/// `stealth` is the pre-fix location. It is kept only so a guard that an older
+/// ksud already started can still be found and stopped after an update; nothing
+/// is ever written there again.
+fn state_dirs() -> [PathBuf; 2] {
+    [private_dir(), Path::new(defs::WORKING_DIR).join("stealth")]
+}
+
 fn read_state() -> Result<Option<GuardState>> {
-    let path = private_dir().join("guard.pid");
+    for directory in state_dirs() {
+        match read_state_from(&directory.join("guard.pid"))? {
+            Some(state) => return Ok(Some(state)),
+            None => continue,
+        }
+    }
+    Ok(None)
+}
+
+fn read_state_from(path: &Path) -> Result<Option<GuardState>> {
     let file = match OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
         .open(path)
     {
         Ok(file) => file,
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        // NotFound covers a missing directory; NotADirectory covers the old
+        // location still being the kernel's flag *file* rather than a directory.
+        Err(error)
+            if error.kind() == ErrorKind::NotFound
+                || error.raw_os_error() == Some(libc::ENOTDIR) =>
+        {
+            return Ok(None);
+        }
         Err(error) => return Err(error.into()),
     };
     validate_file(&file)?;
@@ -491,12 +552,19 @@ fn write_state(state: &GuardState) -> Result<()> {
     Ok(())
 }
 
+/// Remove the guard state from every location it may have been written to,
+/// including the pre-fix one, so a stale pid file cannot resurrect a dead guard.
 fn remove_state() -> Result<()> {
-    match fs::remove_file(private_dir().join("guard.pid")) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error.into()),
+    for directory in state_dirs() {
+        match fs::remove_file(directory.join("guard.pid")) {
+            Ok(()) => {}
+            Err(error)
+                if error.kind() == ErrorKind::NotFound
+                    || error.raw_os_error() == Some(libc::ENOTDIR) => {}
+            Err(error) => return Err(error.into()),
+        }
     }
+    Ok(())
 }
 
 fn process_start(pid: i32) -> Result<u64> {

@@ -27,6 +27,7 @@ import com.xinglinghu.manager.ui.cosmetic.LocalCosmeticState
 import com.xinglinghu.manager.ui.cosmetic.WallpaperSlot
 import com.xinglinghu.manager.ui.cosmetic.WallpaperStore
 import com.xinglinghu.manager.ui.navigation3.LocalNavigator
+import com.xinglinghu.manager.ui.stealth.DialerRecoveryCode
 import com.xinglinghu.manager.ui.stealth.Stealth
 import com.xinglinghu.manager.ui.stealth.StealthController
 import com.xinglinghu.manager.ui.util.execKsud
@@ -47,6 +48,8 @@ internal data class IkunSettingsUiState(
     val hidden: Boolean,
     val kernelStealth: Boolean,
     val recoveryCode: String,
+    /** Raw digits only; the `*#*#…#*#*` wrapper is added for display. */
+    val recoveryCodeDigits: String,
     val autostart: Boolean,
     val busy: Boolean,
     val message: String,
@@ -66,12 +69,15 @@ internal data class IkunSettingsActions(
     val onPickWallpaper: () -> Unit,
     val onResetWallpaper: () -> Unit,
     val onSetAnnouncement: (Boolean) -> Unit,
+    val onSetRecoveryCode: (String) -> Unit,
+    val onResetRecoveryCode: () -> Unit,
     val onCopyCode: () -> Unit,
     val onOpenDialer: () -> Unit,
     val onSetHidden: (Boolean) -> Unit,
     val onSetKernelStealth: (Boolean) -> Unit,
     val onOpenWebManager: () -> Unit,
     val onStopWebManager: () -> Unit,
+    val onRotateWebManagerLink: () -> Unit,
     val onSetAutostart: (Boolean) -> Unit,
 )
 
@@ -141,7 +147,9 @@ fun IkunSettingsScreen() {
                     // swallowed and the user saw only ksud's downstream "Install or
                     // update ksud from the Manager" message. Surface the real
                     // failure instead.
-                    if (args.startsWith("webui start")) {
+                    // `webui rotate` restarts the service internally, so it needs
+                    // the installed daemon just as much as `webui start` does.
+                    if (args.startsWith("webui start") || args.startsWith("webui rotate")) {
                         check(runCatching { install() }.getOrDefault(false)) {
                             installFailed
                         }
@@ -192,7 +200,8 @@ fun IkunSettingsScreen() {
         announcementEnabled = effects.announcementEnabled,
         hidden = hidden,
         kernelStealth = kernelStealth,
-        recoveryCode = StealthController.DIAL_CODE,
+        recoveryCode = StealthController.dialCode(context),
+        recoveryCodeDigits = StealthController.recoveryCode(context),
         autostart = autostart,
         busy = busy,
         message = message,
@@ -226,9 +235,20 @@ fun IkunSettingsScreen() {
             // AnnouncementPrefs reads, so no second write is needed here.
             effects.announcementEnabled(value)
         },
+        onSetRecoveryCode = { code ->
+            if (DialerRecoveryCode.setValue(context, code)) {
+                message = done
+            } else {
+                message = failed
+            }
+        },
+        onResetRecoveryCode = {
+            DialerRecoveryCode.reset(context)
+            message = done
+        },
         onCopyCode = {
             context.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData.newPlainText("🐾星棱狐🐾", StealthController.DIAL_CODE))
+                .setPrimaryClip(ClipData.newPlainText("🐾星棱狐🐾", StealthController.dialCode(context)))
             message = copied
         },
         onOpenDialer = {
@@ -245,9 +265,22 @@ fun IkunSettingsScreen() {
                                 recoveryUnavailable
                             }
                         }
+                        // Restoring the icon is a local package-manager call and
+                        // never depends on ksud, so do it before touching the
+                        // guard: leaving stealth must not be blocked by a broken
+                        // recovery policy.
                         StealthController.setHidden(context, value)
                         hidden = StealthController.isHidden(context)
-                        if (!value) withContext(Dispatchers.IO) { execKsud("stealth stop") }
+                        if (!value) {
+                            // A failed stop used to be swallowed, which is how a
+                            // stuck guard could look like "stealth will not turn
+                            // off". Report it instead of claiming success.
+                            val stopped = withContext(Dispatchers.IO) { execKsud("stealth stop") }
+                            if (!stopped) {
+                                message = failed
+                                return@launch
+                            }
+                        }
                         message = done
                     } catch (error: Exception) {
                         message = error.message ?: failed
@@ -259,6 +292,7 @@ fun IkunSettingsScreen() {
         },
         onOpenWebManager = { operation("webui start", open = true) },
         onStopWebManager = { operation("webui stop") },
+        onRotateWebManagerLink = { operation("webui rotate", open = true) },
         onSetKernelStealth = { value ->
             if (!busy) {
                 busy = true

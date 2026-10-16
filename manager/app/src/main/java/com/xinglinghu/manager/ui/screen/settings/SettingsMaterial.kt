@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material.icons.filled.Adb
@@ -153,6 +154,20 @@ fun SettingPagerMaterial(
                             headlineContent = { Text(stringResource(R.string.ikun_settings_title)) },
                             supportingContent = { Text(stringResource(R.string.ikun_settings_summary)) },
                             leadingContent = { Icon(Icons.Filled.AutoAwesome, stringResource(R.string.ikun_settings_title)) },
+                            trailingContent = {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    null
+                                )
+                            }
+                        )
+                    },
+                    {
+                        SegmentedListItem(
+                            onClick = actions.onOpenAssistant,
+                            headlineContent = { Text(stringResource(R.string.assistant_title)) },
+                            supportingContent = { Text(stringResource(R.string.assistant_summary)) },
+                            leadingContent = { Icon(Icons.AutoMirrored.Filled.Chat, stringResource(R.string.assistant_title)) },
                             trailingContent = {
                                 Icon(
                                     Icons.AutoMirrored.Filled.KeyboardArrowRight,

@@ -10,8 +10,8 @@ import com.xinglinghu.manager.ui.MainActivity
 /**
  * Dialer escape hatch, shared by both disguises.
  *
- * Entering [DialerRecoveryCode.VALUE] in the system dialer clears the hidden
- * launcher icon *and* turns off kernel stealth, then opens the Manager.
+ * Entering the configured code in the system dialer clears the hidden launcher
+ * icon *and* turns off kernel stealth, then opens the Manager.
  *
  * A single code deliberately covers both: either mechanism left on its own can
  * make the app hard to get back into, and a user who has just restored the icon
@@ -19,11 +19,13 @@ import com.xinglinghu.manager.ui.MainActivity
  *
  * SECRET_CODE is not a protected broadcast, so any app could forge it. That is
  * acceptable here because this receiver only ever *restores* visibility — the
- * worst a forged broadcast achieves is un-hiding an app the user installed.
+ * worst a forged broadcast achieves is un-hiding an app the user installed. The
+ * code is a convenience, not a security boundary, which is why it is editable
+ * without any re-authentication.
  */
 class DialerRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (!DialerRecoveryCode.matches(intent.action, intent.data?.toString())) return
+        if (!DialerRecoveryCode.matches(context, intent.action, intent.data?.toString())) return
 
         StealthController.setHidden(context, false)
 

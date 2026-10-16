@@ -23,6 +23,8 @@ pub enum WebCommand {
     Stop,
     /// Print the authenticated browser URL
     Url,
+    /// Revoke the current browser link and mint a new one
+    Rotate,
     /// Persist whether the service starts at boot
     Autostart {
         #[arg(value_parser = ["on", "off", "status"])]
@@ -111,6 +113,14 @@ fn read_private(name: &str) -> Result<String> {
     Ok(value)
 }
 
+/// A token is exactly 64 lowercase hex characters.
+fn is_token(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn live_token() -> Result<String> {
     // A process that merely binds port 9178 must receive no credentials.
     let pid = crate::webui_auth::server_pid(&read_private("webui.pid")?)
@@ -122,13 +132,7 @@ fn live_token() -> Result<String> {
         "No authenticated root web manager is running"
     );
     let value = read_private("webui.token")?;
-    ensure!(
-        value.len() == 64
-            && value
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
-        "Invalid web token"
-    );
+    ensure!(is_token(&value), "Invalid web token");
     Ok(value)
 }
 
@@ -245,7 +249,9 @@ pub fn start() -> Result<()> {
         let (starttime, _) = process_identity(&fs::read_to_string(format!("/proc/{pid}/stat"))?)
             .context("Invalid web manager process status")?;
         // An APK/daemon update must not silently keep the previous server alive.
-        control("/api/shutdown")?;
+        // `/api/restart` exits without revoking, so an update keeps the saved
+        // link working; only a user-facing stop revokes.
+        control("/api/restart")?;
         // The HTTP acknowledgement precedes shutdown, and tiny_http closes its
         // listener on another thread. Wait for both before binding a new one.
         wait_for_shutdown(pid, starttime)?;
@@ -329,6 +335,55 @@ fn log_tail() -> String {
     }
 }
 
+/// Stop the service and revoke the browser link it handed out.
+///
+/// The token deliberately survives restarts, reboots, and daemon replacement so
+/// a saved link keeps working without a fresh `webui url` from the Manager. An
+/// explicit stop is therefore the one action that invalidates it.
+fn stop() -> Result<()> {
+    // A running server holds the secret in memory, so deleting the file alone
+    // would leave a leaked link working. Shutting it down is therefore required
+    // while it is up. When nothing is running (a reboot with autostart off, or a
+    // stop from the panel) there is no in-memory secret left to invalidate, and
+    // removing the file is the whole job.
+    if live_token().is_ok() {
+        control("/api/shutdown")?;
+    }
+    match fs::remove_file(path("webui.token")) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error).context("Cannot revoke the web manager token"),
+    }
+}
+
+/// Revoke the link handed out so far and hand out a fresh one.
+///
+/// Revocation is real only once the running server has exited and its token
+/// file is gone: from that point a saved or leaked link stops working. The
+/// replacement then mints a new token (see `serve`), and the caller gets the
+/// new URL.
+fn rotate() -> Result<()> {
+    // A stale PID file (a reboot while autostart was disabled) is harmless: the
+    // token removal below still invalidates any saved link.
+    if let Some(pid) = read_private("webui.pid")
+        .ok()
+        .and_then(|value| crate::webui_auth::server_pid(&value))
+        && let Ok(status) = fs::read_to_string(format!("/proc/{pid}/stat"))
+        && let Some((starttime, _)) = process_identity(&status)
+    {
+        control("/api/shutdown")?;
+        wait_for_shutdown(pid, starttime)?;
+    }
+    match fs::remove_file(path("webui.token")) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).context("Cannot revoke the web manager token"),
+    }
+    start()?;
+    println!("{ORIGIN}/#{}", live_token()?);
+    Ok(())
+}
+
 pub fn run(command: WebCommand) -> Result<()> {
     ensure!(
         unsafe { libc::geteuid() } == 0,
@@ -336,7 +391,8 @@ pub fn run(command: WebCommand) -> Result<()> {
     );
     match command {
         WebCommand::Start => start(),
-        WebCommand::Stop => control("/api/shutdown"),
+        WebCommand::Stop => stop(),
+        WebCommand::Rotate => rotate(),
         WebCommand::Url => {
             println!("{ORIGIN}/#{}", live_token()?);
             Ok(())
@@ -423,10 +479,23 @@ fn serve() -> Result<()> {
     crate::utils::switch_mnt_ns(1)?;
     let server = Server::http(ADDRESS).map_err(|e| anyhow::anyhow!("{e}"))?;
     prepare_directory()?;
-    // Rotate only after binding. A failed start must never create a token that
-    // a fake listener can capture and replay against a future root service.
-    let secret = random_token()?;
-    write_private("webui.token", &secret)?;
+    // Mint only after binding, so a failed start never publishes a credential
+    // that a fake listener could capture and replay against a future root
+    // service.
+    //
+    // A still-valid token is reused instead of rotated. Rotating on every start
+    // forced the user back into the Manager for a fresh `webui url` after each
+    // restart or reboot, which is exactly the dependency on the Manager that the
+    // panel must not have. `webui stop` revokes the link, and the next start
+    // mints a replacement.
+    let secret = match read_private("webui.token") {
+        Ok(existing) if is_token(&existing) => existing,
+        _ => {
+            let fresh = random_token()?;
+            write_private("webui.token", &fresh)?;
+            fresh
+        }
+    };
     // Dropped before Server, withdrawing the PID before releasing its socket.
     let _identity = ServerIdentity::publish()?;
     for mut request in server.incoming_requests() {
@@ -463,7 +532,14 @@ fn serve() -> Result<()> {
                 ),
             }
         };
-        let shutdown = status == 200 && endpoint == "/api/shutdown" && authenticated;
+        // `/api/shutdown` is the user-facing stop, so it revokes the link.
+        // `/api/restart` is the internal replacement used when the daemon
+        // changes: it must exit without revoking, or every update would
+        // invalidate the saved link and reintroduce the Manager dependency.
+        let exit = status == 200
+            && authenticated
+            && matches!(endpoint.as_str(), "/api/shutdown" | "/api/restart");
+        let revoke = exit && endpoint == "/api/shutdown";
         let mut response = Response::from_string(body).with_status_code(status);
         for (name, value) in [
             ("Content-Type", mime),
@@ -480,8 +556,19 @@ fn serve() -> Result<()> {
         if let Err(e) = request.respond(response) {
             log::warn!("Web response failed: {e}");
         }
-        if shutdown {
+        if exit {
             break;
+        }
+    }
+    if revoke {
+        // Stopping is what revokes the link. Removing the token here rather
+        // than only in `stop` keeps both stop entry points consistent: whether
+        // the service is stopped by `ksud webui stop` or by the panel's own
+        // button, the link that was handed out stops working.
+        match fs::remove_file(path("webui.token")) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => log::warn!("Cannot revoke the web manager token: {error}"),
         }
     }
     Ok(())
@@ -542,6 +629,48 @@ fn stealth() -> Result<bool> {
         }
     }
     Ok(false)
+}
+
+/// The dialer code that restores the hidden launcher icon, as the panel shows it.
+///
+/// The code is user-configurable and lives in the Manager's own preferences, so
+/// the panel cannot hardcode it: showing a stale code is worse than showing
+/// none, because the user would trust it and get locked out after hiding the
+/// icon. Reading the preference file directly keeps the panel in step with the
+/// Manager without a second source of truth or another supercall.
+///
+/// Returns `None` only when the file exists but cannot be read, i.e. when the
+/// Manager's real value is genuinely unknown to us.
+fn dial_code() -> Option<String> {
+    const DEFAULT: &str = "917891786688";
+    let path = format!(
+        "/data/data/{}/shared_prefs/ikun_stealth.xml",
+        defs::DEFAULT_PACKAGE_NAME
+    );
+    let code = match fs::read_to_string(&path) {
+        Ok(xml) => parse_stored_code(&xml)
+            .filter(|value| (4..=32).contains(&value.len()))
+            .unwrap_or_else(|| DEFAULT.to_owned()),
+        // No preference file means the user never changed the code, so the
+        // shipped default is exactly what the Manager would report too.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => DEFAULT.to_owned(),
+        Err(_) => return None,
+    };
+    Some(format!("*#*#{code}#*#*"))
+}
+
+/// Extract the `<string name="recovery_code">` value from a preference XML file.
+fn parse_stored_code(xml: &str) -> Option<String> {
+    let marker = "name=\"recovery_code\"";
+    let rest = &xml[xml.find(marker)? + marker.len()..];
+    let open = rest.find('>')? + 1;
+    let close = rest[open..].find('<')? + open;
+    let value = &rest[open..close];
+    if value.bytes().all(|byte| byte.is_ascii_digit()) {
+        Some(value.to_owned())
+    } else {
+        None
+    }
 }
 
 fn set_stealth(enabled: bool) -> Result<()> {
@@ -621,8 +750,11 @@ fn dispatch(request: &mut Request, endpoint: &str) -> Result<Value> {
     };
     match endpoint {
         "/api/ping" | "/api/shutdown" => Ok(json!({"ok":true})),
+        // Internal: exit without revoking the stored link. Used by `start` when
+        // it must replace a running daemon after an update.
+        "/api/restart" => Ok(json!({"ok":true})),
         "/api/status" => Ok(
-            json!({"name":"🐾星棱狐🐾","version":defs::VERSION_NAME,"kernel":ksucalls::get_version(),"mode":ksucalls::runtime_mode(),"stealth":stealth()?,"webui_autostart":autostart_enabled()}),
+            json!({"name":"🐾星棱狐🐾","version":defs::VERSION_NAME,"kernel":ksucalls::get_version(),"mode":ksucalls::runtime_mode(),"stealth":stealth()?,"webui_autostart":autostart_enabled(),"dial_code":dial_code()}),
         ),
         "/api/features" => {
             let managed = module::get_managed_features()?;

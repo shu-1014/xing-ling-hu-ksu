@@ -46,6 +46,7 @@ fun SettingPager(
         onSetCheckModuleUpdate = viewModel::setCheckModuleUpdate,
         onOpenTheme = { navigator.push(Route.ColorPalette) },
         onOpenIkunSettings = { navigator.push(Route.IkunSettings) },
+        onOpenAssistant = { navigator.push(Route.Assistant) },
         onSetUiModeIndex = { index ->
             viewModel.setUiMode(if (index == 0) UiMode.Miuix.value else UiMode.Material.value)
         },

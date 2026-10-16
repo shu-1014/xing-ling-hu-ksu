@@ -22,11 +22,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -41,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.xinglinghu.manager.R
 import com.xinglinghu.manager.ui.component.material.ExpressiveScaffold
@@ -192,7 +195,10 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
             item {
                 TonalCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.ikun_dialer_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.ikun_dialer_description),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         SelectionContainer {
                             Text(state.recoveryCode, fontFamily = FontFamily.Monospace)
                         }
@@ -204,6 +210,38 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
                                 Text(stringResource(R.string.ikun_open_dialer))
                             }
                         }
+                    }
+                }
+            }
+            item {
+                TonalCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            stringResource(R.string.ikun_recovery_code_summary),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedTextField(
+                            value = state.recoveryCodeDigits,
+                            onValueChange = actions.onSetRecoveryCode,
+                            label = { Text(stringResource(R.string.ikun_recovery_code_label)) },
+                            enabled = !state.busy,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        FilledTonalButton(
+                            onClick = actions.onResetRecoveryCode,
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.ikun_recovery_code_reset))
+                        }
+                    }
+                }
+            }
+            item {
+                TonalCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Toggle(stringResource(R.string.ikun_stealth), state.hidden, enabled = !state.busy, onCheckedChange = actions.onSetHidden)
                         Text(
                             stringResource(R.string.ikun_stealth_summary),
@@ -241,6 +279,13 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.ikun_web_stop))
+                        }
+                        FilledTonalButton(
+                            onClick = actions.onRotateWebManagerLink,
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.ikun_web_rotate))
                         }
                         Toggle(
                             title = stringResource(R.string.ikun_web_autostart),
