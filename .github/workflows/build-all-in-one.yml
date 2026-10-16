@@ -1,46 +1,42 @@
-name: 一体构建管理器《U》
-
-# 一条龙：编译 kernelsu.ko → 校验身份 → 编译 ksud/ksuinit → 把 LKM 内嵌进 ksud
-#        → 编译管理器 APK → 打包成一个「装完即用」的 root 管理器。
-#
-# 产物 APK 里的 libksud.so 已内嵌本次编译出来的 LKM，安装后走默认修补流程
-# 就会用上带你自己包名/签名的模块，不需要再单独找 ko 文件。
-
+name: 一体构建管理器《U�?
+# 一条龙：编�?kernelsu.ko �?校验身份 �?编译 ksud/ksuinit �?�?LKM 内嵌�?ksud
+#        �?编译管理�?APK �?打包成一个「装完即用」的 root 管理器�?#
+# 产物 APK 里的 libksud.so 已内嵌本次编译出来的 LKM，安装后走默认修补流�?# 就会用上带你自己包名/签名的模块，不需要再单独�?ko 文件�?
 on:
   workflow_dispatch:
     inputs:
       kmi:
-        description: '要内嵌的 KMI。all = 全部 8 个（适配所有 5.10 以上机型），也可逗号分隔只挑几个'
+        description: '要内嵌的 KMI。all = 全部 8 个（适配所�?5.10 以上机型），也可逗号分隔只挑几个'
         required: true
         default: 'all'
         type: string
       package_name:
-        description: '管理器包名'
+        description: '管理器包�?
         required: true
         default: 'com.xinglinghu.manager'
         type: string
       expected_hash:
-        description: '管理器签名证书 SHA-256'
+        description: '管理器签名证�?SHA-256'
         required: true
         default: 'ff7d77b3f5ee160dfcac5ff8a42d7a31eb825b2d88f83017b8323dd51c6c3b8d'
         type: string
       expected_size:
-        description: '管理器签名证书 DER 长度'
+        description: '管理器签名证�?DER 长度'
         required: true
         default: '0x033b'
         type: string
       version_code:
-        description: 'versionCode（同时作为内核上报的 KSU_VERSION）'
+        description: 'versionCode（同时作为内核上报的 KSU_VERSION�?
         required: true
-        default: '30014'
+        default: '30015'
         type: string
       version_name:
         description: 'versionName'
         required: true
-        default: 'v3.5.4-xinglinghu'
+        default: 'v3.5.5-xinglinghu'
         type: string
       sign:
-        description: '是否签名（需要先在仓库配好 KEYSTORE 等 Secrets）'
+        description: '是否签名（需要先在仓库配�?KEYSTORE �?Secrets�?
         required: true
         default: true
         type: boolean
@@ -86,8 +82,8 @@ jobs:
       - name: 提示
         if: ${{ steps.set.outputs.count > 2 }}
         run: |
-          echo "::notice::内嵌 ${{ steps.set.outputs.count }} 个 KMI，这一个 APK 即可适配所有 5.10 以上的机型。"
-          echo "::notice::代价是 APK 会大几 MB（每个模块约 100-300 KB），换来的是不用再纠结设备 KMI。"
+          echo "::notice::内嵌 ${{ steps.set.outputs.count }} �?KMI，这一�?APK 即可适配所�?5.10 以上的机型�?
+          echo "::notice::代价�?APK 会大�?MB（每个模块约 100-300 KB），换来的是不用再纠结设�?KMI�?
 
   # ---------------------------------------------------------------------------
   # 2. 编译 kernelsu.ko
@@ -107,15 +103,13 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # 3. 校验 LKM 身份
-  #    "包名对了、哈希还是上游的" 正是踩过的坑，这里必须挡住。
-  # ---------------------------------------------------------------------------
+  #    "包名对了、哈希还是上游的" 正是踩过的坑，这里必须挡住�?  # ---------------------------------------------------------------------------
   verify-lkm:
     needs: build-lkm
     runs-on: ubuntu-latest
     steps:
-      # 按架构分别下载：aarch64 和 x86_64 的产物同名（<kmi>_kernelsu.ko），
-      # merge-multiple 会让它们互相覆盖，所以分开放。
-      - name: 下载 arm64 LKM
+      # 按架构分别下载：aarch64 �?x86_64 的产物同名（<kmi>_kernelsu.ko），
+      # merge-multiple 会让它们互相覆盖，所以分开放�?      - name: 下载 arm64 LKM
         uses: actions/download-artifact@v8
         with:
           pattern: 'aarch64-*-lkm'
@@ -143,10 +137,10 @@ jobs:
             grep -aq "$HASH" "$ko" && echo "  ok: 证书哈希" \
               || { echo "::error file=$ko::缺少证书哈希"; exit 1; }
             if grep -aq "c371061b19d8c7d7d6133c6a9bafe198fa944e50c1b31c9d8daa8d7f1fc2d2d6" "$ko"; then
-              echo "::error file=$ko::仍然是上游证书哈希"; exit 1
+              echo "::error file=$ko::仍然是上游证书哈�?; exit 1
             fi
           done
-          [ "$n" -gt 0 ] || { echo "::error::没有下载到任何 .ko"; exit 1; }
+          [ "$n" -gt 0 ] || { echo "::error::没有下载到任�?.ko"; exit 1; }
           echo "全部 $n 个模块身份校验通过"
 
   # ---------------------------------------------------------------------------
@@ -157,7 +151,7 @@ jobs:
     uses: ./.github/workflows/ksuinit.yml
 
   # ---------------------------------------------------------------------------
-  # 5. 编译 ksud，并把 LKM + ksuinit 内嵌进去
+  # 5. 编译 ksud，并�?LKM + ksuinit 内嵌进去
   # ---------------------------------------------------------------------------
   build-ksud:
     needs: [verify-lkm, build-ksuinit]
@@ -175,7 +169,7 @@ jobs:
       pack_ksuinit: true
 
   # ---------------------------------------------------------------------------
-  # 6. 编译管理器 APK
+  # 6. 编译管理�?APK
   # ---------------------------------------------------------------------------
   build-manager:
     needs: build-ksud
@@ -190,12 +184,8 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # 故意不装 android-actions/setup-android：
-      # ubuntu-latest 镜像本来就带好了 Android SDK（ANDROID_HOME 已设好），
-      # 而 setup-android 经常自己先挂掉（ANDROID_SDK_ROOT 冲突 / 拉 cmdline-tools 失败），
-      # 会在还没开始编译时就把整个 job 弄红。上游的 build-manager.yml 同样没用它。
-      # 缺的 build-tools 37.0.0 由 AGP 在 assembleRelease 时自动下载。
-      - name: 确认 Android SDK 可用
+      # 故意不装 android-actions/setup-android�?      # ubuntu-latest 镜像本来就带好了 Android SDK（ANDROID_HOME 已设好）�?      # �?setup-android 经常自己先挂掉（ANDROID_SDK_ROOT 冲突 / �?cmdline-tools 失败），
+      # 会在还没开始编译时就把整个 job 弄红。上游的 build-manager.yml 同样没用它�?      # 缺的 build-tools 37.0.0 �?AGP �?assembleRelease 时自动下载�?      - name: 确认 Android SDK 可用
         run: |
           set -eu
           echo "ANDROID_HOME=$ANDROID_HOME"
@@ -209,8 +199,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # LKM 按 KMI 分开下载，避免同名文件互相覆盖（x86 和 arm64 都叫 <kmi>_kernelsu.ko）
-      - name: 下载每个 KMI 的 LKM
+      # LKM �?KMI 分开下载，避免同名文件互相覆盖（x86 �?arm64 都叫 <kmi>_kernelsu.ko�?      - name: 下载每个 KMI �?LKM
         uses: actions/download-artifact@v8
         with:
           pattern: 'aarch64-*-lkm'
@@ -227,9 +216,9 @@ jobs:
           set -eu
           for t in aarch64 x86_64 riscv64; do
             d=$(find /tmp/ksud-arts -type d -name "ksud-${t}-linux-android" | head -n 1)
-            [ -n "$d" ] || { echo "::error::缺少 $t 的 ksud"; exit 1; }
+            [ -n "$d" ] || { echo "::error::缺少 $t �?ksud"; exit 1; }
             src=$(find "$d" -type f -name ksud | head -n 1)
-            [ -n "$src" ] || { echo "::error::$d 里没有 ksud"; exit 1; }
+            [ -n "$src" ] || { echo "::error::$d 里没�?ksud"; exit 1; }
             case "$t" in
               aarch64) abi=arm64-v8a ;;
               x86_64)  abi=x86_64 ;;
@@ -245,14 +234,10 @@ jobs:
           PKG: ${{ inputs.package_name }}
         run: |
           set -eu
-          # 重要：ksud 的 Cargo.toml 给 rust-embed 开了 "compression"，
-          # 模块内容是 DEFLATE 压缩后存进二进制的，所以在这里 grep 证书哈希
-          # 永远找不到 —— 那是压缩数据，不是明文。之前就是这么误报的。
-          #
+          # 重要：ksud �?Cargo.toml �?rust-embed 开�?"compression"�?          # 模块内容�?DEFLATE 压缩后存进二进制的，所以在这里 grep 证书哈希
+          # 永远找不�?—�?那是压缩数据，不是明文。之前就是这么误报的�?          #
           # 能查的是「资源名」：rust-embed 必须把文件名原样存着（Asset::iter()
-          # 要靠它列出 KMI），所以文件名在 = ksud.yml 编译前确实把 ko 拷进了
-          # bin/<arch>/。模块内容本身的身份由 verify-lkm 直接 grep 原始 .ko 保证。
-          find /tmp/lkm-arm64 -name '*.ko' -printf '  %f  %s bytes\n' | sort
+          # 要靠它列�?KMI），所以文件名�?= ksud.yml 编译前确实把 ko 拷进�?          # bin/<arch>/。模块内容本身的身份�?verify-lkm 直接 grep 原始 .ko 保证�?          find /tmp/lkm-arm64 -name '*.ko' -printf '  %f  %s bytes\n' | sort
 
           expected=$(find /tmp/lkm-arm64 -name '*.ko' -printf '%f\n' | sort)
           [ -n "$expected" ] || { echo "::error::没有可核对的 LKM"; exit 1; }
@@ -263,14 +248,14 @@ jobs:
           for abi in arm64-v8a x86_64 riscv64; do
             f="manager/app/src/main/jniLibs/$abi/libksud.so"
             echo "--- $abi ($(stat -c%s "$f") 字节) ---"
-            grep -aq "$PKG" "$f" || { echo "::error::$f 里没有包名 $PKG"; exit 1; }
+            grep -aq "$PKG" "$f" || { echo "::error::$f 里没有包�?$PKG"; exit 1; }
             if [ "$abi" = "riscv64" ]; then
-              echo "  ok: 仅校验包名（上游没有 riscv64 的 LKM）"
+              echo "  ok: 仅校验包名（上游没有 riscv64 �?LKM�?
               continue
             fi
             missing=0
             for ko in $expected; do
-              grep -aq "$ko" "$f" || { echo "::error::$f 里没有内嵌 $ko"; missing=1; }
+              grep -aq "$ko" "$f" || { echo "::error::$f 里没有内�?$ko"; missing=1; }
             done
             [ "$missing" = "0" ] || exit 1
             echo "  ok: $count 个模块名全部命中"
@@ -288,21 +273,18 @@ jobs:
         run: |
           set -eu
           if [ -z "${KS_B64:-}" ]; then
-            echo "::error::你勾选了签名，但仓库里没有 KEYSTORE Secret。"
-            echo "::error::请到 Settings → Secrets and variables → Actions 配置："
-            echo "::error::KEYSTORE（.jks 的 base64）、KEYSTORE_PASSWORD、KEY_ALIAS、KEY_PASSWORD"
+            echo "::error::你勾选了签名，但仓库里没�?KEYSTORE Secret�?
+            echo "::error::请到 Settings �?Secrets and variables �?Actions 配置�?
+            echo "::error::KEYSTORE�?jks �?base64）、KEYSTORE_PASSWORD、KEY_ALIAS、KEY_PASSWORD"
             exit 1
           fi
 
-          # 别信 Secret 粘贴时的换行/空格，先清干净再解码。
-          printf '%s' "$KS_B64" | tr -d ' \t\r\n' | base64 -d > manager/xinglinghu-release.jks
+          # 别信 Secret 粘贴时的换行/空格，先清干净再解码�?          printf '%s' "$KS_B64" | tr -d ' \t\r\n' | base64 -d > manager/xinglinghu-release.jks
           [ -s manager/xinglinghu-release.jks ] \
-            || { echo "::error::KEYSTORE 解码后是空的，检查 base64 是否完整"; exit 1; }
-          echo "密钥库已写入：$(stat -c%s manager/xinglinghu-release.jks) 字节"
+            || { echo "::error::KEYSTORE 解码后是空的，检�?base64 是否完整"; exit 1; }
+          echo "密钥库已写入�?(stat -c%s manager/xinglinghu-release.jks) 字节"
 
-          # 关键的前置校验：先把证书导出来比哈希，不匹配就立刻失败。
-          # 否则会白编十分钟，最后产出一个内核根本不认的 APK。
-          keytool -exportcert -alias "$KEY_ALIAS" \
+          # 关键的前置校验：先把证书导出来比哈希，不匹配就立刻失败�?          # 否则会白编十分钟，最后产出一个内核根本不认的 APK�?          keytool -exportcert -alias "$KEY_ALIAS" \
             -keystore manager/xinglinghu-release.jks \
             -storepass "$KS_PASS" -file /tmp/cert.der >/dev/null
 
@@ -313,12 +295,12 @@ jobs:
           echo "期望哈希: $WANT_HASH"
 
           [ "$got_hash" = "$WANT_HASH" ] || {
-            echo "::error::这个密钥库的证书哈希和内核对不上，装上去不会有 root。"
+            echo "::error::这个密钥库的证书哈希和内核对不上，装上去不会�?root�?
             echo "::error::期望 $WANT_HASH"
             echo "::error::实际 $got_hash"
             exit 1
           }
-          echo "::notice::证书哈希与内核一致，可以开始编译。"
+          echo "::notice::证书哈希与内核一致，可以开始编译�?
 
           {
             echo "KEYSTORE_FILE=xinglinghu-release.jks"
@@ -346,8 +328,7 @@ jobs:
           echo "APK=$apk" >> $GITHUB_ENV
           ls -l "$apk"
 
-          # SDK 可能装在几个不同位置，挨个找；AGP 会在编译时把 build-tools 37.0.0 拉下来。
-          find_tool() {
+          # SDK 可能装在几个不同位置，挨个找；AGP 会在编译时把 build-tools 37.0.0 拉下来�?          find_tool() {
             for root in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk "$HOME/Android/Sdk"; do
               [ -n "$root" ] || continue
               [ -d "$root/build-tools" ] || continue
@@ -358,7 +339,7 @@ jobs:
           }
 
           AAPT=$(find_tool aapt2) || {
-            echo "::error::找不到 aapt2。已安装的 build-tools："
+            echo "::error::找不�?aapt2。已安装�?build-tools�?
             find / -type d -path '*build-tools*' -maxdepth 6 2>/dev/null | head -n 20
             exit 1
           }
@@ -375,11 +356,11 @@ jobs:
             unzip -p "$apk" "lib/$abi/libksud.so" > "/tmp/a-$abi.so" \
               || { echo "::error::APK 缺少 lib/$abi/libksud.so"; exit 1; }
             grep -aq "$PKG" "/tmp/a-$abi.so" \
-              || { echo "::error::lib/$abi/libksud.so 里没有 $PKG"; exit 1; }
+              || { echo "::error::lib/$abi/libksud.so 里没�?$PKG"; exit 1; }
             echo "  ok: lib/$abi/libksud.so"
           done
 
-          echo "APK 校验通过：$PKG  $VNAME ($VCODE)"
+          echo "APK 校验通过�?PKG  $VNAME ($VCODE)"
 
       - name: 打印签名信息
         if: ${{ inputs.sign }}
@@ -396,30 +377,25 @@ jobs:
             done
             return 1
           }
-          APKSIGNER=$(find_tool apksigner) || { echo "::error::找不到 apksigner"; exit 1; }
+          APKSIGNER=$(find_tool apksigner) || { echo "::error::找不�?apksigner"; exit 1; }
           "$APKSIGNER" verify --print-certs "$APK"
 
-          # 最后一道闸：从已签名的 APK 里读出证书哈希，和内核里烧的比。
-          # 这是整条链路上唯一能证明「装上去真有 root」的检查。
-          #
-          # 注意别用 keytool -printcert：JKS 警告会混进 stdout，
-          # grep 'SHA256:' 会先匹配到那行空壳，取出来是空字符串。
-          # apksigner 的输出是干净的，直接解析它。
-          got=$("$APKSIGNER" verify --print-certs "$APK" \
+          # 最后一道闸：从已签名的 APK 里读出证书哈希，和内核里烧的比�?          # 这是整条链路上唯一能证明「装上去真有 root」的检查�?          #
+          # 注意别用 keytool -printcert：JKS 警告会混�?stdout�?          # grep 'SHA256:' 会先匹配到那行空壳，取出来是空字符串�?          # apksigner 的输出是干净的，直接解析它�?          got=$("$APKSIGNER" verify --print-certs "$APK" \
                 | grep -i 'certificate SHA-256 digest' \
                 | head -n 1 \
                 | sed 's/.*digest:[[:space:]]*//' \
                 | tr -d ': \t\r\n' | tr 'A-Z' 'a-z')
 
           echo "APK 证书 SHA-256: $got"
-          echo "内核里烧的哈希  : $WANT_HASH"
+          echo "内核里烧的哈�? : $WANT_HASH"
 
-          [ -n "$got" ] || { echo "::error::没能从 APK 里读出证书哈希"; exit 1; }
+          [ -n "$got" ] || { echo "::error::没能�?APK 里读出证书哈�?; exit 1; }
           if [ "$got" != "$WANT_HASH" ]; then
-            echo "::error::APK 的签名证书哈希和内核里的对不上，装上去不会被授权 root。"
+            echo "::error::APK 的签名证书哈希和内核里的对不上，装上去不会被授权 root�?
             exit 1
           fi
-          echo "::notice::签名哈希与内核一致，这个 APK 可用。"
+          echo "::notice::签名哈希与内核一致，这个 APK 可用�?
 
       - name: 整理产物
         run: |
@@ -428,9 +404,7 @@ jobs:
           cp "$APK" "dist/星棱狐管理器_${{ inputs.version_name }}.apk"
           cd dist && sha256sum *.apk | tee SHA256SUMS.txt
 
-      # LKM 单独留一份：以后想用「使用本地 LKM 文件」的方式修补时能直接用。
-      # 从 /tmp 拷进 workspace，upload-artifact 对工作区外的绝对路径不可靠。
-      - name: 收集 LKM
+      # LKM 单独留一份：以后想用「使用本�?LKM 文件」的方式修补时能直接用�?      # �?/tmp 拷进 workspace，upload-artifact 对工作区外的绝对路径不可靠�?      - name: 收集 LKM
         run: |
           set -eu
           mkdir -p dist-lkm
@@ -439,29 +413,29 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: 一体构建-管理器APK
+          name: 一体构�?管理器APK
           path: dist/*
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
-          name: 一体构建-LKM模块
+          name: 一体构�?LKM模块
           path: dist-lkm/*.ko
           if-no-files-found: error
 
       - name: 总结
         run: |
           {
-            echo "## 🐾星棱狐🐾 一体构建完成"
+            echo "## 🐾星棱狐�?一体构建完�?
             echo ""
-            echo "| 项目 | 值 |"
+            echo "| 项目 | �?|"
             echo "| --- | --- |"
             echo "| 包名 | \`${{ inputs.package_name }}\` |"
             echo "| 版本 | \`${{ inputs.version_name }}\` (code ${{ inputs.version_code }}) |"
             echo "| 内嵌 KMI | \`${{ inputs.kmi }}\` |"
-            echo "| 签名 | ${{ inputs.sign && '已签名' || '**未签名**' }} |"
+            echo "| 签名 | ${{ inputs.sign && '已签�? || '**未签�?*' }} |"
             echo ""
-            echo "下载 **一体构建-管理器APK** 安装即可。"
+            echo "下载 **一体构�?管理器APK** 安装即可�?
             echo ""
-            echo "> 内嵌的 LKM 与设备内核版本无关，只与包名/签名有关。"
+            echo "> 内嵌�?LKM 与设备内核版本无关，只与包名/签名有关�?
           } >> $GITHUB_STEP_SUMMARY
