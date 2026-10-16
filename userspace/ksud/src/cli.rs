@@ -523,7 +523,7 @@ enum Umount {
         /// mount point path
         mnt: String,
     },
-    /// List all mount points in the persisted umount list
+    /// List all mount points in umount list
     List,
     /// Save current umount list to file
     Save,
@@ -868,7 +868,8 @@ pub fn run() -> Result<()> {
             Initrc::Refresh => regenerate_preinit_rc(),
         },
         Commands::Umount { command } => match command {
-            Umount::Add { mnt, flags } => umount::add_umount_entry_to_config(&mnt, flags),
+            // `add` only mutates the kernel list; persistence is done by `save`.
+            Umount::Add { mnt, flags } => ksucalls::umount_list_add(&mnt, flags),
             Umount::Remove { mnt } => umount::remove_umount_entry_from_config(&mnt),
             Umount::List => umount::list_umount_config(),
             Umount::Save => umount::save_umount_config(),

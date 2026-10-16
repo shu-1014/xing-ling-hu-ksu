@@ -93,72 +93,37 @@ fn write_umount_entries(entries: &[(String, u32)]) -> Result<()> {
     Ok(())
 }
 
-/// Add a mount point to the kernel umount list and persist it to the config file.
-///
-/// This fork has no `KSU_IOCTL_LIST_TRY_UMOUNT`, so the live kernel list cannot
-/// be read back; the config file is the userspace record of persisted entries
-/// and is kept in sync here.
-pub fn add_umount_entry_to_config(target_path: &str, flags: u32) -> Result<()> {
-    ksucalls::umount_list_add(target_path, flags)
-        .context("Failed to add umount entry to kernel")?;
-
-    let mut entries = read_umount_entries()?.unwrap_or_default();
-    if let Some(existing) = entries.iter_mut().find(|(p, _)| p == target_path) {
-        existing.1 = flags;
-    } else {
-        entries.push((target_path.to_string(), flags));
-    }
-    write_umount_entries(&entries)?;
-
-    info!(
-        "Added umount entry '{}' to config {}",
-        target_path,
-        defs::UMOUNT_CONFIG_PATH
-    );
-    Ok(())
-}
-
-/// List the persisted umount entries.
-///
-/// Built from the config file only: listing the live kernel list would need
-/// `KSU_IOCTL_LIST_TRY_UMOUNT`, which this fork does not implement.
+/// List the live kernel umount list.
 pub fn list_umount_config() -> Result<()> {
-    let entries = read_umount_entries()?.unwrap_or_default();
-
-    // Same shape as the reference kernel list output
-    println!("Mount Point\tFlags");
-    println!("----------\t-----");
-    for (path, flags) in entries {
-        println!("{path}\t{flags}");
-    }
-
+    let list = ksucalls::umount_list_list().context("Failed to get umount list from kernel")?;
+    print!("{list}");
     Ok(())
 }
 
-/// Save the persisted umount entries to the config file in canonical form.
+/// Snapshot the live kernel umount list into the config file.
+///
+/// The kernel list is the source of truth: `umount add` only mutates it, so the
+/// file is refreshed from `KSU_IOCTL_LIST_TRY_UMOUNT` instead of being
+/// re-serialized from its own previous contents.
 pub fn save_umount_config() -> Result<()> {
-    let Some(entries) = read_umount_entries()? else {
-        info!("No valid umount config file to save, skipping");
-        return Ok(());
-    };
+    let list_output =
+        ksucalls::umount_list_list().context("Failed to get umount list from kernel")?;
 
-    // Deduplicate by path, last entry wins
-    let mut deduped: Vec<(String, u32)> = Vec::with_capacity(entries.len());
-    for (path, flags) in entries {
-        if let Some(existing) = deduped.iter_mut().find(|(p, _)| p == &path) {
-            existing.1 = flags;
-        } else {
-            deduped.push((path, flags));
+    // Parse the kernel list output and collect entries, skipping the two header
+    // lines emitted by the kernel.
+    let mut entries: Vec<(String, u32)> = Vec::new();
+    for line in list_output.lines().skip(2) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let path = parts[0];
+            let flags = parts[1].parse::<u32>().unwrap_or(0);
+            entries.push((path.to_string(), flags));
         }
     }
 
-    let count = deduped.len();
-    write_umount_entries(&deduped)?;
-    info!(
-        "Saved {} umount entries to {}",
-        count,
-        defs::UMOUNT_CONFIG_PATH
-    );
+    write_umount_entries(&entries)?;
+
+    info!("Saved umount config to {}", defs::UMOUNT_CONFIG_PATH);
     Ok(())
 }
 

@@ -149,6 +149,12 @@ struct ksu_add_try_umount_cmd {
     __u8 mode; /* denotes what to do with it 0:wipe_list 1:add_to_list 2:delete_entry */
 };
 
+// List current umount entries
+struct ksu_list_try_umount_cmd {
+    __aligned_u64 arg; /* Output: user buffer */
+    __u32 buf_size; /* Input: buffer size provided by userspace */
+};
+
 struct ksu_get_sulog_fd_cmd {
     __u32 flags; /* Input: reserved for future use, must be 0 */
 };
@@ -203,5 +209,15 @@ struct ksu_stealth_cmd {
 
 static const __u32 KSU_IOCTL_STEALTH_GET = _IOR('K', 22, struct ksu_stealth_cmd);
 static const __u32 KSU_IOCTL_STEALTH_SET = _IOW('K', 23, struct ksu_stealth_cmd);
+
+/*
+ * 100+ range (SukiSU-Ultra parity)
+ *
+ *   We keep the same command numbers as SukiSU-Ultra so both trees stay
+ *   interchangeable. Only 103 is used here: a read-only enumeration of the
+ *   kernel try-umount list. Same rationale as stealth above: no UAPI version
+ *   bump, because an old kernel simply answers -ENOTTY for unknown commands.
+ */
+static const __u32 KSU_IOCTL_LIST_TRY_UMOUNT = _IOC(_IOC_READ | _IOC_WRITE, 'K', 103, 0);
 
 #endif

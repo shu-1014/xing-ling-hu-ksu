@@ -1,6 +1,7 @@
 #include <linux/capability.h>
 #include <linux/cred.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/thread_info.h>
@@ -659,6 +660,101 @@ static int add_try_umount(void __user *arg)
     return 0;
 }
 
+#define MAX_UMOUNT_LIST_SIZE (2 * 1024 * 1024) // 2MB absolute max
+#define DEFAULT_UMOUNT_SIZE (64 * 1024) // 64KB default
+
+/* 103. LIST_TRY_UMOUNT - enumerate the current try-umount list */
+static int list_try_umount(void __user *arg)
+{
+    struct ksu_list_try_umount_cmd cmd;
+    struct mount_entry *entry;
+    char *output_buf;
+    size_t output_size;
+    size_t offset = 0;
+    int ret = 0;
+    bool using_vmalloc = false;
+    int mount_count = 0;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd)))
+        return -EFAULT;
+
+    if (cmd.buf_size > 1024 * 1024) {
+        pr_err("list_try_umount: invalid buf_size %u\n", cmd.buf_size);
+        return -EINVAL;
+    }
+
+    output_size = cmd.buf_size ? cmd.buf_size : 4096;
+
+    if (!cmd.arg || output_size == 0)
+        return -EINVAL;
+
+    // Count mounts first to estimate size needed
+    down_read(&mount_list_lock);
+    list_for_each_entry (entry, &mount_list, list) {
+        mount_count++;
+    }
+    up_read(&mount_list_lock);
+
+    // Calculate needed size: ~200 bytes per mount + 1KB header
+    output_size = 1024 + (mount_count * 200);
+
+    // Use at least default size, cap at maximum
+    if (output_size < DEFAULT_UMOUNT_SIZE)
+        output_size = DEFAULT_UMOUNT_SIZE;
+    if (output_size > MAX_UMOUNT_LIST_SIZE)
+        output_size = MAX_UMOUNT_LIST_SIZE;
+
+    pr_info("list_try_umount: allocating %zu bytes for %d mounts (user requested %zu)\n",
+            output_size, mount_count, (size_t)cmd.buf_size);
+
+    // Try kzalloc first with NOWARN flag
+    output_buf = kzalloc(output_size, GFP_KERNEL | __GFP_NOWARN);
+    if (!output_buf) {
+        // Fallback to vzalloc for large allocations
+        pr_info("list_try_umount: kzalloc failed for %zu bytes, using vzalloc\n", output_size);
+        output_buf = vzalloc(output_size);
+        using_vmalloc = true;
+    }
+
+    if (!output_buf) {
+        pr_err("list_try_umount: failed to allocate %zu bytes for umount list\n", output_size);
+        return -ENOMEM;
+    }
+
+    offset += snprintf(output_buf + offset, output_size - offset, "Mount Point\tFlags\n");
+    offset += snprintf(output_buf + offset, output_size - offset, "----------\t-----\n");
+
+    down_read(&mount_list_lock);
+    list_for_each_entry (entry, &mount_list, list) {
+        int written = snprintf(output_buf + offset, output_size - offset, "%s\t%u\n", entry->umountable, entry->flags);
+        if (written < 0) {
+            ret = -EFAULT;
+            break;
+        }
+        if (written >= (int)(output_size - offset)) {
+            // Should rarely happen since we calculated size
+            pr_warn("list_try_umount: buffer full, truncating mount list\n");
+            ret = -ENOSPC;
+            break;
+        }
+        offset += written;
+    }
+    up_read(&mount_list_lock);
+
+    if (ret == 0) {
+        if (copy_to_user((void __user *)cmd.arg, output_buf, offset))
+            ret = -EFAULT;
+    }
+
+    // Free using the correct method
+    if (using_vmalloc)
+        vfree(output_buf);
+    else
+        kfree(output_buf);
+
+    return ret;
+}
+
 static int do_set_init_pgrp(void __user *arg)
 {
     int err;
@@ -907,6 +1003,12 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .name = "STEALTH_SET",
         .handler = do_stealth_set,
         .perm_check = only_manager
+    },
+    {
+        .cmd = KSU_IOCTL_LIST_TRY_UMOUNT,
+        .name = "LIST_TRY_UMOUNT",
+        .handler = list_try_umount,
+        .perm_check = manager_or_root
     },
     {
         .cmd = 0,
