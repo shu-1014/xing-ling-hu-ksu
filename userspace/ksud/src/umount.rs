@@ -1,0 +1,238 @@
+use crate::{defs, ksucalls};
+use anyhow::{Context, Result};
+use log::{info, warn};
+use std::fs;
+use std::io::{BufReader, Read, Write};
+use std::path::Path;
+
+// Magic number for umount config file
+const UMOUNT_CONFIG_MAGIC: u32 = 0x4B53_554D; // KSUM
+
+/// Read all entries from the umount config file.
+///
+/// Returns `None` when the file does not exist or its magic number is invalid.
+fn read_umount_entries() -> Result<Option<Vec<(String, u32)>>> {
+    let config_path = Path::new(defs::UMOUNT_CONFIG_PATH);
+
+    if !config_path.exists() {
+        return Ok(None);
+    }
+
+    let file = fs::File::open(config_path).context("Failed to open umount config file")?;
+    let mut reader = BufReader::new(file);
+
+    // Read and verify magic number
+    let mut magic_buf = [0u8; 4];
+    reader
+        .read_exact(&mut magic_buf)
+        .context("Failed to read magic number")?;
+    let magic = u32::from_le_bytes(magic_buf);
+
+    if magic != UMOUNT_CONFIG_MAGIC {
+        warn!("Invalid magic number in umount config file, skipping");
+        return Ok(None);
+    }
+
+    let mut entries: Vec<(String, u32)> = Vec::new();
+    loop {
+        // Read path length
+        let mut len_buf = [0u8; 4];
+        match reader.read_exact(&mut len_buf) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(e) => return Err(e.into()),
+        }
+        let path_len = u32::from_le_bytes(len_buf) as usize;
+
+        // Read path
+        let mut path_buf = vec![0u8; path_len];
+        reader
+            .read_exact(&mut path_buf)
+            .context("Failed to read path")?;
+        let path = String::from_utf8(path_buf).context("Invalid UTF-8 in path")?;
+
+        // Read flags
+        let mut flags_buf = [0u8; 4];
+        reader
+            .read_exact(&mut flags_buf)
+            .context("Failed to read flags")?;
+        let flags = u32::from_le_bytes(flags_buf);
+
+        entries.push((path, flags));
+    }
+
+    Ok(Some(entries))
+}
+
+/// Write entries to the umount config file with the magic header.
+fn write_umount_entries(entries: &[(String, u32)]) -> Result<()> {
+    let config_path = Path::new(defs::UMOUNT_CONFIG_PATH);
+
+    // Ensure directory exists
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent).context("Failed to create config directory")?;
+    }
+
+    let mut file = fs::File::create(config_path).context("Failed to create umount config file")?;
+
+    // Write magic number
+    file.write_all(&UMOUNT_CONFIG_MAGIC.to_le_bytes())
+        .context("Failed to write magic number")?;
+
+    // Write path length (u32), path bytes, flags (u32)
+    for (path, flags) in entries {
+        let path_bytes = path.as_bytes();
+        file.write_all(&(path_bytes.len() as u32).to_le_bytes())
+            .context("Failed to write path length")?;
+        file.write_all(path_bytes)
+            .context("Failed to write path bytes")?;
+        file.write_all(&flags.to_le_bytes())
+            .context("Failed to write flags")?;
+    }
+
+    Ok(())
+}
+
+/// Add a mount point to the kernel umount list and persist it to the config file.
+///
+/// This fork has no `KSU_IOCTL_LIST_TRY_UMOUNT`, so the live kernel list cannot
+/// be read back; the config file is the userspace record of persisted entries
+/// and is kept in sync here.
+pub fn add_umount_entry_to_config(target_path: &str, flags: u32) -> Result<()> {
+    ksucalls::umount_list_add(target_path, flags)
+        .context("Failed to add umount entry to kernel")?;
+
+    let mut entries = read_umount_entries()?.unwrap_or_default();
+    if let Some(existing) = entries.iter_mut().find(|(p, _)| p == target_path) {
+        existing.1 = flags;
+    } else {
+        entries.push((target_path.to_string(), flags));
+    }
+    write_umount_entries(&entries)?;
+
+    info!(
+        "Added umount entry '{}' to config {}",
+        target_path,
+        defs::UMOUNT_CONFIG_PATH
+    );
+    Ok(())
+}
+
+/// List the persisted umount entries.
+///
+/// Built from the config file only: listing the live kernel list would need
+/// `KSU_IOCTL_LIST_TRY_UMOUNT`, which this fork does not implement.
+pub fn list_umount_config() -> Result<()> {
+    let entries = read_umount_entries()?.unwrap_or_default();
+
+    // Same shape as the reference kernel list output
+    println!("Mount Point\tFlags");
+    println!("----------\t-----");
+    for (path, flags) in entries {
+        println!("{path}\t{flags}");
+    }
+
+    Ok(())
+}
+
+/// Save the persisted umount entries to the config file in canonical form.
+pub fn save_umount_config() -> Result<()> {
+    let Some(entries) = read_umount_entries()? else {
+        info!("No valid umount config file to save, skipping");
+        return Ok(());
+    };
+
+    // Deduplicate by path, last entry wins
+    let mut deduped: Vec<(String, u32)> = Vec::with_capacity(entries.len());
+    for (path, flags) in entries {
+        if let Some(existing) = deduped.iter_mut().find(|(p, _)| p == &path) {
+            existing.1 = flags;
+        } else {
+            deduped.push((path, flags));
+        }
+    }
+
+    let count = deduped.len();
+    write_umount_entries(&deduped)?;
+    info!(
+        "Saved {} umount entries to {}",
+        count,
+        defs::UMOUNT_CONFIG_PATH
+    );
+    Ok(())
+}
+
+/// Load the persisted umount entries from the config file into the kernel.
+pub fn load_umount_config() -> Result<()> {
+    let Some(entries) = read_umount_entries()? else {
+        info!("Umount config file does not exist or is invalid, skipping");
+        return Ok(());
+    };
+
+    // Wipe existing list first
+    ksucalls::umount_list_wipe().context("Failed to wipe existing umount list")?;
+
+    let mut count = 0;
+    for (path, flags) in entries {
+        ksucalls::umount_list_add(&path, flags)
+            .with_context(|| format!("Failed to add umount path: {path}"))?;
+        count += 1;
+    }
+
+    info!("Loaded {count} umount entries from config");
+    Ok(())
+}
+
+pub fn apply_umount_config() -> Result<()> {
+    load_umount_config()
+}
+
+/// Delete a mount point from the kernel umount list and from the config file.
+pub fn remove_umount_entry_from_config(target_path: &str) -> Result<()> {
+    ksucalls::umount_list_del(target_path).context("Failed to delete umount entry from kernel")?;
+
+    let Some(mut entries) = read_umount_entries()? else {
+        return Ok(());
+    };
+
+    let original_len = entries.len();
+    entries.retain(|(p, _)| p != target_path);
+
+    if entries.len() == original_len {
+        return Ok(());
+    }
+
+    if entries.is_empty() {
+        let config_path = Path::new(defs::UMOUNT_CONFIG_PATH);
+        fs::remove_file(config_path).context("Failed to remove empty umount config file")?;
+        info!("Removed umount config file because list is now empty");
+        return Ok(());
+    }
+
+    write_umount_entries(&entries)?;
+
+    info!(
+        "Removed umount entry '{}' from config {}",
+        target_path,
+        defs::UMOUNT_CONFIG_PATH
+    );
+    Ok(())
+}
+
+/// Wipe the kernel umount list and delete the config file.
+pub fn clear_umount_config() -> Result<()> {
+    let config_path = Path::new(defs::UMOUNT_CONFIG_PATH);
+
+    // Wipe kernel list first
+    ksucalls::umount_list_wipe().context("Failed to wipe kernel umount list")?;
+
+    // Delete config file if it exists
+    if config_path.exists() {
+        fs::remove_file(config_path).context("Failed to remove umount config file")?;
+        info!("Removed umount config file: {}", defs::UMOUNT_CONFIG_PATH);
+    } else {
+        info!("Umount config file does not exist, skipping removal");
+    }
+
+    Ok(())
+}

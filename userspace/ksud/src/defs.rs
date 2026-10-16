@@ -59,6 +59,8 @@ mod android {
     pub const KSU_TEMP_BACKUP_DIR_NAME: &str = "boot_backup";
 
     pub const DEFAULT_PACKAGE_NAME: &str = env!("KSU_PACKAGE_NAME");
+
+    pub const UMOUNT_CONFIG_PATH: &str = concatcp!(WORKING_DIR, ".umount");
 }
 
 #[allow(unused)]

@@ -10,7 +10,7 @@ use crate::lkm_image::BootPatchV2Args;
 use crate::module::regenerate_preinit_rc;
 use crate::{
     apk_sign, assets, debug, defs, init_event, ksu_uapi, ksucalls, module, module_config, sulog,
-    utils,
+    umount, utils,
 };
 
 /// KernelSU userspace cli
@@ -162,6 +162,12 @@ enum Commands {
     Initrc {
         #[command(subcommand)]
         command: Initrc,
+    },
+
+    /// Manage kernel umount paths
+    Umount {
+        #[command(subcommand)]
+        command: Umount,
     },
 }
 
@@ -502,6 +508,31 @@ enum Initrc {
     Refresh,
 }
 
+#[derive(clap::Subcommand, Debug)]
+enum Umount {
+    /// Add mount point to umount list
+    Add {
+        /// mount point path
+        mnt: String,
+        /// umount flags (default: 0, MNT_DETACH: 2)
+        #[arg(short, long, default_value = "0")]
+        flags: u32,
+    },
+    /// Remove mount point from umount list
+    Remove {
+        /// mount point path
+        mnt: String,
+    },
+    /// List all mount points in the persisted umount list
+    List,
+    /// Save current umount list to file
+    Save,
+    /// Apply saved umount list from file to kernel
+    Apply,
+    /// Clear custom umount paths (wipe kernel list)
+    ClearCustom,
+}
+
 pub fn run() -> Result<()> {
     android_logger::init_once(
         Config::default()
@@ -835,6 +866,14 @@ pub fn run() -> Result<()> {
         },
         Commands::Initrc { command } => match command {
             Initrc::Refresh => regenerate_preinit_rc(),
+        },
+        Commands::Umount { command } => match command {
+            Umount::Add { mnt, flags } => umount::add_umount_entry_to_config(&mnt, flags),
+            Umount::Remove { mnt } => umount::remove_umount_entry_from_config(&mnt),
+            Umount::List => umount::list_umount_config(),
+            Umount::Save => umount::save_umount_config(),
+            Umount::Apply => umount::apply_umount_config(),
+            Umount::ClearCustom => umount::clear_umount_config(),
         },
     };
 
