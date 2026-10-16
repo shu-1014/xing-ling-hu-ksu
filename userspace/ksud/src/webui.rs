@@ -498,6 +498,9 @@ fn serve() -> Result<()> {
     };
     // Dropped before Server, withdrawing the PID before releasing its socket.
     let _identity = ServerIdentity::publish()?;
+    // Set inside the loop so the token is revoked only after the response that
+    // asked for the stop has been delivered.
+    let mut revoke = false;
     for mut request in server.incoming_requests() {
         let endpoint = request.url().split('?').next().unwrap_or("").to_owned();
         let authenticated = header(&request, "Authorization")
@@ -539,7 +542,7 @@ fn serve() -> Result<()> {
         let exit = status == 200
             && authenticated
             && matches!(endpoint.as_str(), "/api/shutdown" | "/api/restart");
-        let revoke = exit && endpoint == "/api/shutdown";
+        revoke = exit && endpoint == "/api/shutdown";
         let mut response = Response::from_string(body).with_status_code(status);
         for (name, value) in [
             ("Content-Type", mime),
