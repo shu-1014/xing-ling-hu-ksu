@@ -186,6 +186,29 @@ fn control(endpoint: &str) -> Result<()> {
     Ok(())
 }
 
+/// Reject a daemon that is not our ksud.
+///
+/// `/data/adb/ksud` is a shared well-known path, so another root solution may
+/// own it. Such a binary has no `webui` subcommand, and spawning it would only
+/// surface an opaque exit status. Detect that here and say what to do instead.
+fn ensure_own_daemon(path: &str) -> Result<()> {
+    const MARKER: &[u8] = defs::DEFAULT_PACKAGE_NAME.as_bytes();
+    const SCAN_LIMIT: u64 = 64 * 1024 * 1024;
+    let size = fs::metadata(path)?.len();
+    ensure!(
+        size <= SCAN_LIMIT,
+        "Installed ksud is unexpectedly large, refusing to start the web service"
+    );
+    let contents = fs::read(path).context("Cannot read the installed ksud")?;
+    ensure!(
+        contents
+            .windows(MARKER.len())
+            .any(|window| window == MARKER),
+        "The installed ksud belongs to another root solution; install or update ksud from the Manager before starting the web service"
+    );
+    Ok(())
+}
+
 fn installed_daemon() -> Result<&'static str> {
     let metadata = fs::symlink_metadata(defs::DAEMON_PATH)
         .context("Install or update ksud from the Manager before starting the web service")?;
@@ -197,6 +220,7 @@ fn installed_daemon() -> Result<&'static str> {
             && metadata.len() > 0,
         "Installed ksud must be a root-owned, protected executable file"
     );
+    ensure_own_daemon(defs::DAEMON_PATH)?;
     Ok(defs::DAEMON_PATH)
 }
 
