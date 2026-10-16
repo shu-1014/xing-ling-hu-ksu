@@ -250,8 +250,14 @@ pub fn start() -> Result<()> {
             .context("Invalid web manager process status")?;
         // An APK/daemon update must not silently keep the previous server alive.
         // `/api/restart` exits without revoking, so an update keeps the saved
-        // link working; only a user-facing stop revokes.
-        control("/api/restart")?;
+        // link working. A server started by an older build does not know that
+        // endpoint and answers "Unknown API endpoint" with 400, which would turn
+        // a normal upgrade into a failed start, so fall back to the older
+        // `/api/shutdown`; those builds never revoked on stop, so the saved link
+        // still survives.
+        if control("/api/restart").is_err() {
+            control("/api/shutdown")?;
+        }
         // The HTTP acknowledgement precedes shutdown, and tiny_http closes its
         // listener on another thread. Wait for both before binding a new one.
         wait_for_shutdown(pid, starttime)?;
