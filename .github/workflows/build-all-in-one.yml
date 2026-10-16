@@ -32,12 +32,12 @@ on:
       version_code:
         description: 'versionCode（同时作为内核上报的 KSU_VERSION）'
         required: true
-        default: '30013'
+        default: '30014'
         type: string
       version_name:
         description: 'versionName'
         required: true
-        default: 'v3.5.3-xinglinghu'
+        default: 'v3.5.4-xinglinghu'
         type: string
       sign:
         description: '是否签名（需要先在仓库配好 KEYSTORE 等 Secrets）'

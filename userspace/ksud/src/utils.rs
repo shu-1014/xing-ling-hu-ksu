@@ -1,10 +1,10 @@
-use anyhow::{Context, Error, Ok, Result, bail};
+use anyhow::{Context, Error, Ok, Result, bail, ensure};
 use rustix::fs::{Mode, OFlags, open};
 use rustix::process::setpgid;
 use rustix::stdio::{dup2_stderr, dup2_stdin, dup2_stdout};
 use std::{
     ffi::{CStr, CString, c_char, c_void},
-    fs::{File, OpenOptions, create_dir_all, remove_file, write},
+    fs::{self, File, OpenOptions, create_dir_all, remove_file, write},
     io::{
         ErrorKind::{AlreadyExists, NotFound},
         Write,
@@ -17,7 +17,7 @@ use crate::defs::KSU_TEMP_BACKUP_DIR_NAME;
 use crate::{assets, boot_patch, defs, ksucalls, module, restorecon};
 #[allow(unused_imports)]
 use std::fs::{Permissions, set_permissions};
-use std::os::unix::prelude::PermissionsExt;
+use std::os::unix::prelude::{MetadataExt, PermissionsExt};
 
 use std::path::PathBuf;
 
@@ -84,6 +84,41 @@ pub fn ensure_dir_exists<T: AsRef<Path>>(dir: T) -> Result<()> {
     } else {
         bail!("{} is not a regular directory", dir.as_ref().display())
     }
+}
+
+/// Clear [prohibited] permission bits on a root-owned directory.
+///
+/// `/data/adb/ksu` is created 0777 because ksud's boot stages run under
+/// `umask(0)`, and other root managers (SukiSU-Ultra) share that exact path, so
+/// its mode is not something we can rely on or safely refuse to work with.
+/// Clearing bits only ever restricts access, so a directory that is already
+/// stricter than [prohibited] is left exactly as it is. The real protection
+/// lives in the files anyway: every credential is created 0600 and re-validated
+/// as root-owned on read, and `/data/adb` itself is 0700 root, so no other app
+/// can even reach this directory.
+///
+/// The two properties that do matter are enforced strictly — a real directory,
+/// owned by root. The `chmod` itself is best effort, so an unusual filesystem
+/// that refuses it keeps the previous mode instead of breaking the feature.
+pub fn restrict_dir_mode(path: &Path, prohibited: u32) -> Result<()> {
+    let metadata = fs::symlink_metadata(path)?;
+    ensure!(metadata.is_dir(), "{} is not a directory", path.display());
+    ensure!(
+        metadata.uid() == 0,
+        "{} must be owned by root",
+        path.display()
+    );
+    let mode = metadata.mode() & 0o777;
+    let restricted = mode & !prohibited;
+    if restricted != mode
+        && let Err(error) = fs::set_permissions(path, fs::Permissions::from_mode(restricted))
+    {
+        log::warn!(
+            "cannot restrict {} to {restricted:o}: {error}",
+            path.display()
+        );
+    }
+    Ok(())
 }
 
 pub fn ensure_binary<T: AsRef<Path>>(

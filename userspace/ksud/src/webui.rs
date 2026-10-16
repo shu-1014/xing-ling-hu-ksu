@@ -51,10 +51,18 @@ pub fn autostart_enabled() -> bool {
 
 fn prepare_directory() -> Result<()> {
     fs::create_dir_all(defs::WORKING_DIR)?;
+    // `/data/adb/ksu` is shared with the rest of ksud and with third-party root
+    // managers (SukiSU-Ultra uses the same path), and the boot stages create it
+    // under `umask(0)`, so it is routinely 0777. Refusing that mode made every
+    // `webui start` abort before the server was spawned, which the Manager
+    // surfaced as a generic "operation failed" and never opened a browser.
+    // Clear the group/other write bits instead of failing; the credentials
+    // themselves stay 0600 and root-owned and are re-validated on read.
+    crate::utils::restrict_dir_mode(Path::new(defs::WORKING_DIR), 0o022)?;
     let metadata = fs::symlink_metadata(defs::WORKING_DIR)?;
     ensure!(
-        metadata.is_dir() && metadata.uid() == 0 && metadata.mode() & 0o022 == 0,
-        "Web manager directory must be owned by root and not writable by other users"
+        metadata.is_dir() && metadata.uid() == 0,
+        "Web manager directory must be owned by root"
     );
     Ok(())
 }

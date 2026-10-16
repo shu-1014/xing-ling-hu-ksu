@@ -432,6 +432,13 @@ fn lock() -> Result<File> {
 }
 
 fn validate_directory(path: &Path, private: bool) -> Result<()> {
+    // `/data/adb/ksu` is shared with the rest of ksud and with third-party root
+    // managers, and ksud's boot stages create it under `umask(0)`, so it is
+    // routinely 0777. Rejecting that made the dialer recovery guard fail with
+    // "Recovery state directory is not protected" on an otherwise healthy
+    // device. Clear the prohibited bits instead; a path that is not a
+    // root-owned real directory is still refused below.
+    crate::utils::restrict_dir_mode(path, if private { 0o077 } else { 0o022 })?;
     let metadata = fs::symlink_metadata(path)?;
     let prohibited = if private { 0o077 } else { 0o022 };
     ensure!(
