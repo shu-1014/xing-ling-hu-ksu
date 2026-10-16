@@ -752,10 +752,10 @@ fn dispatch(request: &mut Request, endpoint: &str) -> Result<Value> {
         serde_json::from_str(&body)?
     };
     match endpoint {
-        "/api/ping" | "/api/shutdown" => Ok(json!({"ok":true})),
-        // Internal: exit without revoking the stored link. Used by `start` when
-        // it must replace a running daemon after an update.
-        "/api/restart" => Ok(json!({"ok":true})),
+        // `/api/restart` is the internal counterpart to `/api/shutdown`: `start`
+        // uses it to replace a running daemon after an update, and it exits
+        // without revoking the stored link.
+        "/api/ping" | "/api/shutdown" | "/api/restart" => Ok(json!({"ok":true})),
         "/api/status" => Ok(
             json!({"name":"🐾星棱狐🐾","version":defs::VERSION_NAME,"kernel":ksucalls::get_version(),"mode":ksucalls::runtime_mode(),"stealth":stealth()?,"webui_autostart":autostart_enabled(),"dial_code":dial_code()}),
         ),

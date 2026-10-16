@@ -478,9 +478,8 @@ fn state_dirs() -> [PathBuf; 2] {
 
 fn read_state() -> Result<Option<GuardState>> {
     for directory in state_dirs() {
-        match read_state_from(&directory.join("guard.pid"))? {
-            Some(state) => return Ok(Some(state)),
-            None => continue,
+        if let Some(state) = read_state_from(&directory.join("guard.pid"))? {
+            return Ok(Some(state));
         }
     }
     Ok(None)
