@@ -1,23 +1,10 @@
 name: Build Manager
 
+# 星棱狐：不再在每次 push 时自动构建管理器。
+# 正式构建统一走 build-all-in-one.yml（一体构建管理器《U》），
+# 由手动 dispatch 触发，可指定 versionCode / versionName / 签名。
+# 本工作流保留 pull_request 校验与 workflow_call 复用。
 on:
-  push:
-    branches: [ "main", "dev", "ci" ]
-    paths:
-      - '.github/workflows/build-manager.yml'
-      - '.github/workflows/build-lkm.yml'
-      - '.github/workflows/ddk-lkm.yml'
-      - '.github/workflows/ksud.yml'
-      - '.github/workflows/ksud-extra.yml'
-      - '.github/workflows/ksuinit.yml'
-      - '.github/scripts/setup-rust-build.sh'
-      - '.github/riscv64-cargo.toml'
-      - 'repack_apk.py'
-      - 'manager/**'
-      - 'kernel/**'
-      - 'userspace/**'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
   pull_request:
     branches: [ "main", "dev" ]
     paths:
