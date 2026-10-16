@@ -1,6 +1,9 @@
 package com.xinglinghu.manager.ui.screen.ikun
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,8 +18,10 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -31,6 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -148,6 +155,27 @@ internal fun IkunSettingsMaterial(state: IkunSettingsUiState, actions: IkunSetti
                                 Text(stringResource(R.string.ikun_wallpaper_reset))
                             }
                         }
+                        GlassTintOption(
+                            title = stringResource(R.string.ikun_glass_color),
+                            color = state.glassColor,
+                            onSelect = actions.onSetGlassColor,
+                        )
+                        Text(
+                            stringResource(R.string.ikun_glass_color_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        SliderOption(
+                            title = stringResource(R.string.ikun_glass_alpha),
+                            value = state.glassAlpha,
+                            range = 0f..1f,
+                            onValueChange = actions.onSetGlassAlpha,
+                        )
+                        Text(
+                            stringResource(R.string.ikun_glass_alpha_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Toggle(
                             title = stringResource(R.string.ikun_announcement),
                             checked = state.announcementEnabled,
@@ -282,6 +310,34 @@ private fun SliderOption(title: String, value: Float, range: ClosedFloatingPoint
         Slider(
             state = sliderState,
             onValueChange = onValueChange,
+        )
+    }
+}
+
+@Composable
+private fun GlassTintOption(title: String, color: Int, onSelect: (Int) -> Unit) {
+    val hueState = rememberSliderState(glassHueOf(color), trackRange = 0f..360f)
+    hueState.value = glassHueOf(color)
+    Column {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Box(
+                Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(Color(color))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+            )
+        }
+        GlassColorSwatches(selected = color, onSelect = onSelect)
+        Text(
+            stringResource(R.string.ikun_glass_custom),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            state = hueState,
+            onValueChange = { onSelect(glassColorForHue(it)) },
         )
     }
 }

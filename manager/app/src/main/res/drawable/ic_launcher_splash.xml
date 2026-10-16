@@ -9,12 +9,17 @@
     android:height="108dp"
     android:viewportWidth="500"
     android:viewportHeight="500">
+    <!--
+        画面比例与启动器自适应图标保持一致：内容约占画布的 92%。
+        原先这里是 0.60，底板只占画布 54%，而启动画面会把图标裁成
+        中间约 2/3 的圆，因此圆框内会露出一圈空白，看起来图标比框小。
+    -->
     <group
         android:name="splash_content"
         android:pivotX="250"
         android:pivotY="250"
-        android:scaleX="0.60"
-        android:scaleY="0.60">
+        android:scaleX="1.02"
+        android:scaleY="1.02">
         <path
             android:fillColor="@color/ic_splash_background"
             android:pathData="M135,25h230a110,110 0 0 1 110,110v230a110,110 0 0 1 -110,110h-230a110,110 0 0 1 -110,-110v-230a110,110 0 0 1 110,-110z" />

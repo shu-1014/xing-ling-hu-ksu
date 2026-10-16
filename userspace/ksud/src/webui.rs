@@ -199,7 +199,11 @@ fn process_identity(stat: &str) -> Option<(u64, bool)> {
 }
 
 fn wait_for_shutdown(pid: u32, starttime: u64) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(2);
+    // A loaded device can take a while to tear the previous server down: the
+    // HTTP acknowledgement precedes the shutdown, and tiny_http closes its
+    // listener on another thread. Too short a deadline turns a normal restart
+    // into a spurious "did not stop" failure.
+    let deadline = Instant::now() + Duration::from_secs(5);
     let address = ADDRESS.parse()?;
     loop {
         let exited = match fs::read_to_string(format!("/proc/{pid}/stat")) {
@@ -290,11 +294,39 @@ pub fn start() -> Result<()> {
         }
         if let Some(status) = child.try_wait()? {
             bail!(
-                "Installed ksud web manager exited with {status}; update ksud and check /data/adb/ksu/webui.log"
+                "Installed ksud web manager exited with {status}{}",
+                log_tail()
             );
         }
     }
-    bail!("Web manager failed to start; check /data/adb/ksu/webui.log (port 9178 may be in use)")
+    bail!("Web manager failed to start{}", log_tail())
+}
+
+/// Tail of the web manager log, formatted for appending to an error message.
+///
+/// The daemon writes its real reason for exiting (a UAPI mismatch, a port
+/// already in use, a missing driver fd) to this log, and the Manager shows only
+/// the first line of ksud's stderr. Without this the user sees a generic
+/// "failed to start" and the cause stays buried on the device.
+fn log_tail() -> String {
+    let Ok(mut file) = File::open(path("webui.log")) else {
+        return "; check /data/adb/ksu/webui.log".to_owned();
+    };
+    let mut buffer = String::new();
+    if file.read_to_string(&mut buffer).is_err() || buffer.trim().is_empty() {
+        return "; check /data/adb/ksu/webui.log".to_owned();
+    }
+    let line = buffer
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or_default();
+    if line.is_empty() {
+        "; check /data/adb/ksu/webui.log".to_owned()
+    } else {
+        format!(": {line}")
+    }
 }
 
 pub fn run(command: WebCommand) -> Result<()> {

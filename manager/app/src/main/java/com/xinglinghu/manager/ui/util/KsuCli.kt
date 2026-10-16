@@ -133,11 +133,19 @@ private suspend fun readFeatureValue(args: String): Long? = withContext(Dispatch
     valueLine.substringAfter("Value:").trim().toLongOrNull()
 }
 
-fun install() {
+/**
+ * Installs/refreshes the userspace daemon at /data/adb/ksud.
+ *
+ * Returns whether ksud reported success. The web manager runs the *installed*
+ * daemon, so a caller that needs it must be able to see this failure instead of
+ * reporting ksud's downstream "install ksud first" message.
+ */
+fun install(): Boolean {
     val start = SystemClock.elapsedRealtime()
     val libadbroot = File(ksuApp.applicationInfo.nativeLibraryDir, "libadbroot.so").absolutePath
     val result = execKsud("install --libadbroot $libadbroot --data-path ${ksuApp.applicationInfo.deviceProtectedDataDir}", true)
     Log.w(TAG, "install result: $result, cost: ${SystemClock.elapsedRealtime() - start}ms")
+    return result
 }
 
 fun listModules(): String {

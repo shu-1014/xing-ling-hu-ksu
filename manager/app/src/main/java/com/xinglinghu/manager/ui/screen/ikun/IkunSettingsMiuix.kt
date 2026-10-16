@@ -1,5 +1,7 @@
 package com.xinglinghu.manager.ui.screen.ikun
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +18,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -244,6 +249,50 @@ internal fun IkunSettingsMiuix(state: IkunSettingsUiState, actions: IkunSettings
                                 modifier = Modifier.weight(1f),
                             )
                         }
+                        BasicComponent(
+                            title = stringResource(R.string.ikun_glass_color),
+                            summary = stringResource(R.string.ikun_glass_color_summary),
+                            endActions = {
+                                Box(
+                                    Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(state.glassColor))
+                                        .border(1.dp, colorScheme.onSurfaceVariantSummary, CircleShape)
+                                )
+                            },
+                            bottomAction = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    GlassColorSwatches(
+                                        selected = state.glassColor,
+                                        onSelect = actions.onSetGlassColor,
+                                    )
+                                    Text(
+                                        stringResource(R.string.ikun_glass_custom),
+                                        color = colorScheme.onSurfaceVariantSummary,
+                                    )
+                                    Slider(
+                                        value = glassHueOf(state.glassColor),
+                                        onValueChange = { actions.onSetGlassColor(glassColorForHue(it)) },
+                                        valueRange = 0f..360f,
+                                    )
+                                }
+                            },
+                        )
+                        BasicComponent(
+                            title = stringResource(R.string.ikun_glass_alpha),
+                            summary = stringResource(R.string.ikun_glass_alpha_summary),
+                            endActions = {
+                                Text("${(state.glassAlpha * 100).roundToInt()}%", color = colorScheme.onSurfaceVariantActions)
+                            },
+                            bottomAction = {
+                                Slider(
+                                    value = state.glassAlpha,
+                                    onValueChange = actions.onSetGlassAlpha,
+                                    valueRange = 0f..1f,
+                                )
+                            },
+                        )
                         SwitchPreference(
                             title = stringResource(R.string.ikun_announcement),
                             summary = stringResource(R.string.ikun_announcement_summary),

@@ -92,7 +92,6 @@ import com.xinglinghu.manager.ui.screen.sulog.SulogScreen
 import com.xinglinghu.manager.ui.screen.superuser.SuperUserPager
 import com.xinglinghu.manager.ui.screen.template.AppProfileTemplateScreen
 import com.xinglinghu.manager.ui.screen.templateeditor.TemplateEditorScreen
-import com.xinglinghu.manager.ui.stealth.Stealth
 import com.xinglinghu.manager.ui.stealth.StealthController
 import com.xinglinghu.manager.ui.theme.KernelSUTheme
 import com.xinglinghu.manager.ui.theme.LocalColorMode
@@ -136,31 +135,39 @@ class MainActivity : ComponentActivity() {
         // 不再强制停留固定时长。
         splashScreen.setKeepOnScreenCondition { !contentReady }
 
-        // Installing the daemon must not be gated on `isManager` alone.
+        // Installing the daemon must not be gated on `isManager` or on stealth.
         //
-        // Kernel stealth works by making GET_INFO stop reporting the manager flag,
-        // so once the user turns it on, `isManager` reads false on every later
-        // launch. Gating on it means a disguised device silently stops installing
-        // /data/adb/ksud — which is exactly the file the web manager requires, so
-        // it fails with "install or update ksud from the Manager", and root itself
-        // becomes unreliable. Reading stealthState() == 1 already proves our kernel
-        // is running and recognises us, since that ioctl is ours.
+        // Both are identity tests, and identity is exactly what the install is
+        // meant to establish:
+        //   * `isManager` is false whenever the running kernelsu.ko was built for
+        //     another package/certificate - e.g. a device still carrying an
+        //     upstream module - and also false whenever stealth is on, because
+        //     stealth works by making GET_INFO stop reporting the manager flag.
+        //   * `Stealth.isEnabled()` reads a fork-only ioctl, so it is false on any
+        //     kernel that predates it.
+        // Gating on either meant /data/adb/ksud was never installed on those
+        // devices, and since the web manager runs the *installed* daemon, it
+        // failed with "Install or update ksud from the Manager".
+        //
+        // A non-zero kernel UAPI version proves a KernelSU driver answered
+        // GET_INFO, and ksud's ensure_uapi_version_matched() requires an exact
+        // match, so a looser comparison here would only produce an install that
+        // ksud is guaranteed to reject. install() needs nothing else.
         //
         // install() starts a root shell, so with no root it throws; onCreate is the
         // main thread and has no caller to catch it, so it must not escape.
-        val isManager = runCatching { Natives.isManager }.getOrDefault(false)
-        val stealthOn = Stealth.isEnabled()
-        if (isManager || stealthOn) {
-            // ksud's ensure_uapi_version_matched() requires an exact match, so a
-            // looser comparison here would only produce an install that ksud is
-            // guaranteed to reject.
-            val uapiOk = runCatching {
-                Natives.kernelUAPIVersion == Natives.managerUAPIVersion
-            }.getOrDefault(false)
-            if (uapiOk) {
-                runCatching { install() }
-                    .onFailure { Log.w("KernelSU", "ksud install failed; will retry next launch", it) }
-            }
+        val uapiOk = runCatching {
+            val kernelUapi = Natives.kernelUAPIVersion
+            kernelUapi != 0 && kernelUapi == Natives.managerUAPIVersion
+        }.getOrDefault(false)
+        if (uapiOk) {
+            runCatching { install() }
+                .onSuccess { ok ->
+                    if (!ok) Log.w("KernelSU", "ksud install reported failure; will retry next launch")
+                }
+                .onFailure { Log.w("KernelSU", "ksud install failed; will retry next launch", it) }
+        } else {
+            Log.w("KernelSU", "kernel UAPI version unavailable or mismatched; skipping ksud install")
         }
 
         // Re-arm the MIUI recovery guard whenever the icon is meant to be hidden.

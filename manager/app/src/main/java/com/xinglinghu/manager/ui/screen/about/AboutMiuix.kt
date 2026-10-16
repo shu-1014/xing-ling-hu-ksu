@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
@@ -296,7 +295,11 @@ private fun AboutContent(
             ) {
                 Image(
                     modifier = Modifier
-                        .requiredSize(245.dp)
+                        // Fills the 100dp frame instead of overdrawing at 245dp and
+                        // being clipped: the artwork itself occupies ~92% of the
+                        // drawable, so this shows the whole mark at the same ratio
+                        // the launcher icon uses, rather than a zoomed crop.
+                        .fillMaxSize()
                         .then(
                             if (enableBlur) {
                                 Modifier.textureBlur(

@@ -73,6 +73,21 @@ class CosmeticState(context: Context) {
         private set
 
     /**
+     * Tint of the frosted-glass sheet drawn between the wallpaper and the UI, as
+     * a packed ARGB int. Defaults to a deep blue-grey, which is the tint the
+     * plain black scrim used to emulate, so existing users see no jump.
+     */
+    var glassColor by mutableStateOf(prefs.getInt("glass_color", DEFAULT_GLASS_COLOR))
+        private set
+
+    /**
+     * Opacity of that frosted-glass sheet, 0f..1f. This is the "translucency"
+     * control: lower values let more of the wallpaper through.
+     */
+    var glassAlpha by mutableFloatStateOf(prefs.getFloat("glass_alpha", 0.35f).coerceIn(0f, 1f))
+        private set
+
+    /**
      * Show the release announcement sheet at launch.
      *
      * Stored inverted under [AnnouncementPrefs]' "never show" key so both this
@@ -124,8 +139,27 @@ class CosmeticState(context: Context) {
         prefs.edit().putBoolean("announcement_never_show", !value).apply()
     }
 
+    fun glassColor(value: Int) {
+        glassColor = value
+        prefs.edit().putInt("glass_color", value).apply()
+    }
+
+    fun glassAlpha(value: Float) {
+        glassAlpha = value.coerceIn(0f, 1f)
+        prefs.edit().putFloat("glass_alpha", glassAlpha).apply()
+    }
+
     /** Legacy accessor retained for the pre-existing settings rows. */
     val snow: Boolean get() = effect == FallingEffect.SNOW
+
+    companion object {
+        /**
+         * Deep blue-grey frosted tint. Chosen over a flat black so the sheet
+         * reads as glass rather than as a dimmer, while still keeping light text
+         * legible over a bright photograph.
+         */
+        const val DEFAULT_GLASS_COLOR: Int = 0xFF16203A.toInt()
+    }
 }
 
 val LocalCosmeticState = staticCompositionLocalOf<CosmeticState> { error("Cosmetic state unavailable") }

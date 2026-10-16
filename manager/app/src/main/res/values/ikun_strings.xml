@@ -26,6 +26,11 @@
     <string name="ikun_wallpaper_failed">Could not read that image. Pick another one.</string>
     <string name="ikun_wallpaper_picked">Wallpaper updated</string>
     <string name="ikun_wallpaper_cleared">Wallpaper reset to the bundled default</string>
+    <string name="ikun_glass_color">Frosted glass color</string>
+    <string name="ikun_glass_color_summary">Tint of the frosted sheet between the wallpaper and the interface</string>
+    <string name="ikun_glass_custom">Custom</string>
+    <string name="ikun_glass_alpha">Frosted glass opacity</string>
+    <string name="ikun_glass_alpha_summary">Lower values are more translucent, so more of the wallpaper shows through</string>
     <string name="ikun_announcement">Show announcement at launch</string>
     <string name="ikun_announcement_summary">Turn off to never see the launch notice again</string>
     <string name="ikun_stealth">Hide launcher icon</string>
@@ -37,6 +42,7 @@
     <string name="ikun_web_stop">Stop web manager</string>
     <string name="ikun_web_autostart">Start web manager at boot</string>
     <string name="ikun_operation_failed">Operation failed. Check root access and the matching ksud build.</string>
+    <string name="ikun_install_failed">Could not install ksud. Check root access, then try again.</string>
     <string name="ikun_operation_done">Done</string>
     <string name="ikun_dialer_description">Hide the launcher icon, then enter the code below in the system phone dialer to restore it. No call is needed. Your dialer must support Android secret codes.</string>
     <string name="ikun_copy_code">Copy code</string>

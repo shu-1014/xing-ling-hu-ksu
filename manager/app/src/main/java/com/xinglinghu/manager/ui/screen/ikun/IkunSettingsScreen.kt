@@ -41,6 +41,8 @@ internal data class IkunSettingsUiState(
     val tilt: Boolean,
     val gravityMode: Int,
     val wallpaperAlpha: Float,
+    val glassColor: Int,
+    val glassAlpha: Float,
     val announcementEnabled: Boolean,
     val hidden: Boolean,
     val kernelStealth: Boolean,
@@ -59,6 +61,8 @@ internal data class IkunSettingsActions(
     val onSetTilt: (Boolean) -> Unit,
     val onSetGravityMode: (Int) -> Unit,
     val onSetWallpaperAlpha: (Float) -> Unit,
+    val onSetGlassColor: (Int) -> Unit,
+    val onSetGlassAlpha: (Float) -> Unit,
     val onPickWallpaper: () -> Unit,
     val onResetWallpaper: () -> Unit,
     val onSetAnnouncement: (Boolean) -> Unit,
@@ -94,6 +98,7 @@ fun IkunSettingsScreen() {
     val wallpaperPicked = stringResource(R.string.ikun_wallpaper_picked)
     val wallpaperFailed = stringResource(R.string.ikun_wallpaper_failed)
     val wallpaperCleared = stringResource(R.string.ikun_wallpaper_cleared)
+    val installFailed = stringResource(R.string.ikun_install_failed)
 
     // The wallpaper is copied into private storage as soon as the picker returns,
     // so the returned content URI is never needed again and no persistable
@@ -131,8 +136,15 @@ fun IkunSettingsScreen() {
                     // copy inside the APK, so it is absent until the Manager has
                     // installed the daemon once. Installing here makes the button
                     // work on a device whose daemon is missing or stale.
+                    //
+                    // install() previously returned Unit, so a failed install was
+                    // swallowed and the user saw only ksud's downstream "Install or
+                    // update ksud from the Manager" message. Surface the real
+                    // failure instead.
                     if (args.startsWith("webui start")) {
-                        runCatching { install() }
+                        check(runCatching { install() }.getOrDefault(false)) {
+                            installFailed
+                        }
                     }
                     val daemon = context.applicationInfo.nativeLibraryDir + "/libksud.so"
                     // Surface ksud's own stderr: "install ksud first", "port in use"
@@ -175,6 +187,8 @@ fun IkunSettingsScreen() {
         tilt = effects.tilt,
         gravityMode = effects.gravityMode,
         wallpaperAlpha = effects.wallpaperAlpha,
+        glassColor = effects.glassColor,
+        glassAlpha = effects.glassAlpha,
         announcementEnabled = effects.announcementEnabled,
         hidden = hidden,
         kernelStealth = kernelStealth,
@@ -197,6 +211,8 @@ fun IkunSettingsScreen() {
         onSetTilt = effects::tilt,
         onSetGravityMode = effects::gravityMode,
         onSetWallpaperAlpha = effects::wallpaperAlpha,
+        onSetGlassColor = effects::glassColor,
+        onSetGlassAlpha = effects::glassAlpha,
         onPickWallpaper = {
             wallpaperPicker.launch("image/*")
         },

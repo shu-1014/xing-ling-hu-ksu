@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.FixedScale
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -81,7 +81,13 @@ fun AboutScreenMaterial(
                         Image(
                             painter = painterResource(id = R.drawable.ic_launcher_foreground),
                             contentDescription = null,
-                            contentScale = FixedScale(1f)
+                            modifier = Modifier.fillMaxSize(),
+                            // Fit rather than FixedScale(1f): drawing the 108dp
+                            // drawable at intrinsic size inside an 80dp frame
+                            // cropped it, so the mark overflowed the frame. The
+                            // artwork sits at ~92% of the drawable, which is the
+                            // same ratio the launcher icon uses.
+                            contentScale = ContentScale.Fit
                         )
                     }
                     Text(
