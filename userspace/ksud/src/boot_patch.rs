@@ -54,7 +54,7 @@ mod android {
     }
 
     /// GKI 2.0 starts at 5.10; anything above 5.10 is GKI as well.
-    pub fn is_gki_version(major: i32, minor: i32) -> bool {
+    pub const fn is_gki_version(major: i32, minor: i32) -> bool {
         major > 5 || (major == 5 && minor >= 10)
     }
 
@@ -816,7 +816,11 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
                 is_gki_kmi(&kmi),
                 "no bundled LKM for kernel '{}': the bundled kernelsu.ko is GKI only (5.10+); \
                  build kernelsu.ko for this kernel and pass it with --module (-m)",
-                if kmi.is_empty() { "unknown" } else { kmi.as_str() }
+                if kmi.is_empty() {
+                    "unknown"
+                } else {
+                    kmi.as_str()
+                }
             );
             #[cfg(target_os = "android")]
             {

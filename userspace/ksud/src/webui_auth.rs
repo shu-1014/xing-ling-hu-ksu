@@ -144,7 +144,13 @@ mod tests {
     }
     #[test]
     fn api_requires_an_exact_token_but_the_login_page_can_load() {
-        assert!(!allowed(Some("127.0.0.1:9178"), None, None, "secret", false));
+        assert!(!allowed(
+            Some("127.0.0.1:9178"),
+            None,
+            None,
+            "secret",
+            false
+        ));
         assert!(!allowed(
             Some("127.0.0.1:9178"),
             None,
