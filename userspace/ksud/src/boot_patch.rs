@@ -22,6 +22,7 @@ use crate::feature_id::{FeatureId, parse_feature_id};
 #[cfg(target_os = "android")]
 mod android {
     use super::Result;
+    use super::is_gki_kmi;
     pub(super) use crate::defs::{BACKUP_FILENAME, KSU_BACKUP_DIR, KSU_BACKUP_FILE_PREFIX};
     use crate::defs::{DEFAULT_PACKAGE_NAME, KSU_TEMP_BACKUP_DIR_NAME};
     use android_bootimg::cpio::{Cpio, CpioEntry};
@@ -56,13 +57,6 @@ mod android {
     /// GKI 2.0 starts at 5.10; anything above 5.10 is GKI as well.
     pub const fn is_gki_version(major: i32, minor: i32) -> bool {
         major > 5 || (major == 5 && minor >= 10)
-    }
-
-    /// Whether a KMI string describes a GKI kernel (`android<ver>-<x.y>`).
-    /// Non-GKI kernels have no `android` tag, so the bundled GKI LKMs can not
-    /// be used there and a self-built `kernelsu.ko` is required.
-    pub(super) fn is_gki_kmi(kmi: &str) -> bool {
-        kmi.contains("android")
     }
 
     pub fn get_kernel_version() -> Result<(i32, i32, i32)> {
@@ -344,6 +338,17 @@ rm -f /data/adb/post-fs-data.d/post_ota.sh
 
 #[cfg(target_os = "android")]
 pub use android::*;
+
+/// Whether a KMI string describes a GKI kernel (`android<ver>-<x.y>`).
+/// Non-GKI kernels have no `android` tag, so the bundled GKI LKMs can not be
+/// used there and a self-built `kernelsu.ko` is required.
+///
+/// Kept at module scope rather than inside `mod android`: `patch()` runs on
+/// every platform, so gating this behind `target_os = "android"` broke the
+/// desktop builds.
+fn is_gki_kmi(kmi: &str) -> bool {
+    kmi.contains("android")
+}
 
 fn map_file(file: &Path) -> Result<Mmap> {
     let mut f = File::open(file).with_context(|| format!("open {}", file.display()))?;
