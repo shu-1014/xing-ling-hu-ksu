@@ -821,6 +821,14 @@ private fun ModuleItem(
                         backgroundColor = MaterialTheme.colorScheme.primary
                     )
                 }
+                if (module.zygisk) {
+                    StatusTag(
+                        "ZYGISK",
+                        modifier = Modifier.padding(start = 6.dp, bottom = 4.dp),
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        backgroundColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                }
             }
 
             HorizontalDivider(thickness = Dp.Hairline)

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Groups
@@ -419,6 +420,15 @@ private fun InfoCard(
                     label = stringResource(R.string.home_device_model),
                     content = systemInfo.deviceModel,
                 )
+            }
+            if (!systemInfo.zygiskImplementation.isNullOrBlank()) {
+                item {
+                    InfoCardItem(
+                        icon = Icons.Filled.Extension,
+                        label = stringResource(R.string.home_zygisk_implementation),
+                        content = systemInfo.zygiskImplementation,
+                    )
+                }
             }
             item {
                 InfoCardItem(

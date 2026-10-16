@@ -44,6 +44,14 @@ class HomeViewModel : ViewModel() {
         val isRootAvailable = rootAvailable()
         val managerVersion = getManagerVersion(ksuApp)
 
+        val zygiskImplementation = if (isManager && isRootAvailable) {
+            com.xinglinghu.manager.ui.screen.home.getZygiskImplementation(
+                notInstalledText = ksuApp.getString(com.xinglinghu.manager.R.string.home_zygisk_not_installed),
+                disabledText = ksuApp.getString(com.xinglinghu.manager.R.string.home_zygisk_disabled),
+                rebootRequiredText = ksuApp.getString(com.xinglinghu.manager.R.string.home_zygisk_reboot_required),
+            )
+        } else null
+
         return HomeUiState(
             kernelVersion = kernelVersion,
             ksuVersion = ksuVersion,
@@ -69,6 +77,7 @@ class HomeViewModel : ViewModel() {
                 seccompStatus = runCatching {
                     Os.prctl(21 /* PR_GET_SECCOMP */, 0, 0, 0, 0)
                 }.getOrDefault(-1),
+                zygiskImplementation = zygiskImplementation,
             ),
         )
     }

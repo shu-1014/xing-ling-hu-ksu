@@ -21,6 +21,10 @@
     <string name="selinux_status_permissive">Permissive</string>
     <string name="selinux_status_unknown">Unknown</string>
     <string name="home_seccomp_status">Seccomp status</string>
+    <string name="home_zygisk_implementation">Zygisk implementation</string>
+    <string name="home_zygisk_not_installed">Not installed</string>
+    <string name="home_zygisk_disabled">Disabled</string>
+    <string name="home_zygisk_reboot_required">Reboot required</string>
     <string name="seccomp_status_not_supported">Not supported</string>
     <string name="seccomp_status_disabled">Disabled</string>
     <string name="seccomp_status_strict">Strict</string>

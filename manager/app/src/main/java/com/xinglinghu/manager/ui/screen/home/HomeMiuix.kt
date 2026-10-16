@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Groups
@@ -515,6 +516,13 @@ private fun InfoCard(
                     title = stringResource(R.string.home_device_model),
                     content = systemInfo.deviceModel,
                 )
+                if (!systemInfo.zygiskImplementation.isNullOrBlank()) {
+                    InfoText(
+                        icon = Icons.Filled.Extension,
+                        title = stringResource(R.string.home_zygisk_implementation),
+                        content = systemInfo.zygiskImplementation,
+                    )
+                }
                 InfoText(
                     icon = Icons.Filled.Fingerprint,
                     title = stringResource(R.string.home_fingerprint),
