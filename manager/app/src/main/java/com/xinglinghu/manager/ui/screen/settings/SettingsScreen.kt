@@ -47,6 +47,7 @@ fun SettingPager(
         onOpenTheme = { navigator.push(Route.ColorPalette) },
         onOpenIkunSettings = { navigator.push(Route.IkunSettings) },
         onOpenAssistant = { navigator.push(Route.Assistant) },
+        onOpenTools = { navigator.push(Route.Tool) },
         onSetUiModeIndex = { index ->
             viewModel.setUiMode(if (index == 0) UiMode.Miuix.value else UiMode.Material.value)
         },

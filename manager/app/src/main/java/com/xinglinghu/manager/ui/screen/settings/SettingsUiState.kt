@@ -69,6 +69,7 @@ data class SettingsScreenActions(
     val onOpenTheme: () -> Unit,
         val onOpenIkunSettings: () -> Unit,
     val onOpenAssistant: () -> Unit,
+    val onOpenTools: () -> Unit,
     val onSetUiModeIndex: (Int) -> Unit,
     val onOpenProfileTemplate: () -> Unit,
     val onSetSuCompatMode: (Int) -> Unit,

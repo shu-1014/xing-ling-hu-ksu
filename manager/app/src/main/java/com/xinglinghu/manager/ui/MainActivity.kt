@@ -93,6 +93,7 @@ import com.xinglinghu.manager.ui.screen.sulog.SulogScreen
 import com.xinglinghu.manager.ui.screen.superuser.SuperUserPager
 import com.xinglinghu.manager.ui.screen.template.AppProfileTemplateScreen
 import com.xinglinghu.manager.ui.screen.templateeditor.TemplateEditorScreen
+import com.xinglinghu.manager.ui.screen.tools.ToolsScreen
 import com.xinglinghu.manager.ui.stealth.StealthController
 import com.xinglinghu.manager.ui.theme.KernelSUTheme
 import com.xinglinghu.manager.ui.theme.LocalColorMode
@@ -275,6 +276,7 @@ class MainActivity : ComponentActivity() {
                             entry<Route.Main>(swipeDismiss = swipeDismiss) { mainScreenEntry() }
                             entry<Route.About>(swipeDismiss = swipeDismiss) { AboutScreen() }
                             entry<Route.Sulog>(swipeDismiss = swipeDismiss) { SulogScreen() }
+                            entry<Route.Tool>(swipeDismiss = swipeDismiss) { ToolsScreen() }
                             entry<Route.ColorPalette>(swipeDismiss = swipeDismiss) { ColorPaletteScreen() }
                             entry<Route.AppProfileTemplate>(swipeDismiss = swipeDismiss) { AppProfileTemplateScreen() }
                             entry<Route.TemplateEditor>(swipeDismiss = swipeDismiss) { key -> TemplateEditorScreen(key.template, key.readOnly) }

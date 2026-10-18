@@ -335,6 +335,21 @@
     <string name="install_force_backup_summary">请确保你选择的 boot 镜像是原厂镜像</string>
     <string name="settings_sulog">SU 日志</string>
     <string name="settings_sulog_summary">将 Root 相关事件记录到 🐾星棱狐🐾 的 SU 日志文件中</string>
+    <!-- Tools -->
+    <string name="settings_tools">工具</string>
+    <string name="settings_tools_summary">更多高级功能</string>
+    <string name="tools_selinux_toggle">SELinux 模式</string>
+    <string name="tools_selinux_summary">当前：%1$s</string>
+    <string name="tools_selinux_apply_success">SELinux 已切换为 %1$s</string>
+    <string name="tools_selinux_apply_failed">切换 SELinux 模式失败</string>
+    <string name="allowlist_backup_title">备份允许列表</string>
+    <string name="allowlist_backup_summary_picker">选择位置导出允许列表</string>
+    <string name="allowlist_backup_success">备份成功</string>
+    <string name="allowlist_backup_failed">备份失败</string>
+    <string name="allowlist_restore_title">还原允许列表</string>
+    <string name="allowlist_restore_summary_picker">选择备份文件进行导入</string>
+    <string name="allowlist_restore_success">还原成功，重启生效</string>
+    <string name="allowlist_restore_failed">还原失败</string>
     <string name="sulog_log_files">日志文件</string>
     <string name="sulog_failed_to_load">加载 SU 日志失败</string>
     <string name="sulog_disabled_title">SU 日志未启用</string>

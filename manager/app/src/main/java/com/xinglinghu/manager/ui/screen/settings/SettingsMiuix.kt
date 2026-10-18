@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DeveloperMode
 import androidx.compose.material.icons.rounded.DisplaySettings
 import androidx.compose.material.icons.rounded.FlashOn
+import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LayersClear
 import androidx.compose.material.icons.rounded.Palette
@@ -212,6 +213,29 @@ fun SettingPagerMiuix(
                                     )
                                 },
                                 onClick = actions.onOpenProfileTemplate
+                            )
+                        }
+                    }
+
+                    KsuIsValid {
+                        Card(
+                            modifier = Modifier
+                                .padding(top = 12.dp)
+                                .fillMaxWidth(),
+                        ) {
+                            val toolsTitle = stringResource(id = R.string.settings_tools)
+                            ArrowPreference(
+                                title = toolsTitle,
+                                summary = stringResource(id = R.string.settings_tools_summary),
+                                startAction = {
+                                    Icon(
+                                        Icons.Rounded.Handyman,
+                                        modifier = Modifier.padding(end = 6.dp),
+                                        contentDescription = toolsTitle,
+                                        tint = colorScheme.onBackground
+                                    )
+                                },
+                                onClick = actions.onOpenTools
                             )
                         }
                     }

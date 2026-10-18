@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.DisplaySettings
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LayersClear
 import androidx.compose.material.icons.filled.Palette
@@ -187,6 +188,27 @@ fun SettingPagerMaterial(
                             headlineContent = { Text(profileTemplate) },
                             supportingContent = { Text(stringResource(id = R.string.settings_profile_template_summary)) },
                             leadingContent = { Icon(Icons.Filled.Description, profileTemplate) },
+                            trailingContent = {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    null
+                                )
+                            }
+                        )
+                    }
+                )
+            }
+
+            KsuIsValid {
+                val toolsTitle = stringResource(id = R.string.settings_tools)
+                SegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                    content = listOf {
+                        SegmentedListItem(
+                            onClick = actions.onOpenTools,
+                            headlineContent = { Text(toolsTitle) },
+                            supportingContent = { Text(stringResource(id = R.string.settings_tools_summary)) },
+                            leadingContent = { Icon(Icons.Filled.Handyman, toolsTitle) },
                             trailingContent = {
                                 Icon(
                                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
